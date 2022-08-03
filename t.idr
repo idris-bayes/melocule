@@ -59,12 +59,28 @@ Show ChordQual where
   show Minor    = "Minor"
   show Dominant = "Dominant"
 
-data Chord = MkChord Note        -- Root
+data Chord = MkChord Note         -- Root
                      ChordQual
-                     (List Int)  -- Extensions
+                     (List Note)  -- List of notes in chord
 %runElab derive "Chord" [Generic, Eq]
 Show Chord where
   show (MkChord k q es) = ppNote k ++ " \{show q} \{show es}"
+
+||| Direction for a meldoy fragment to proceed in.
+data Dir = Up
+         | Down
+dirs : Vect ? Dir
+dirs = [Up, Down]
+
+||| Melody Fragments used for constructing tunes.
+data MelodyFrag = ||| Distribute notes uniformly through a scale.
+                  Uniform
+                | ||| Arpeggiate the underlying chord.
+                  Arpeggio
+                | ||| Walk through the scale.
+                  Walk
+mfrags : Vect ? MelodyFrag
+mfrags = [Uniform, Arpeggio, Walk]
 
 data ScaleQual = MajorS
                | MinorS
@@ -82,8 +98,8 @@ data Scale' : ScaleQual -> Type where
   Blues'      : Scale' q
 
 MajorScale', MinorScale', NeutralScale' : Type
-MajorScale'   = Scale' MajorS
-MinorScale'   = Scale' MinorS
+MajorScale' = Scale' MajorS
+MinorScale' = Scale' MinorS
 
 {q : ScaleQual} -> Show (Scale' q) where
   show Ionian'     = "Major"
@@ -127,11 +143,24 @@ dMin = MkChord d Minor []
 twoFive : Vect ? Chord
 twoFive = [dMin, gMaj, cMaj]
 
+
+
+catIndex : MonadSample m => {n : Nat} -> Vect n Double -> Vect n s -> m s
+catIndex ps ss = pure $ index !(categorical ps) ss
+
 partial
 uniformScale : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale' q -> m (Vect n Note)
 uniformScale n s = do
   let (S l ** ns) = scale'ToNotes q s
   replicateM n $ uniformD ns
+
+partial
+genMelody : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale' q -> m (Vect n Note)
+genMelody n s = do
+  case !(uniformD mfrags) of
+    Uniform  => uniformScale n s
+    Arpeggio => ?unimpl_arp
+    Walk     => ?unimpl_walk
 
 ||| Generates random durations that add up to n. `p` determines likelihood of
 ||| shorter durations.
@@ -152,9 +181,6 @@ genBar n s = do
   pure $ case dursM of  -- TODO: handle properly
     Nothing   => ?inaccessible_genBar
     Just durs => (l ** zip notes durs)
-
-catIndex : MonadSample m => {n : Nat} -> Vect n Double -> Vect n s -> m s
-catIndex ps ss = pure $ index !(categorical ps) ss
 
 genScale' : MonadSample m => {n : Nat} -> Vect n (Scale' q) -> Vect n Double -> m (Scale' q)
 genScale' = flip catIndex
