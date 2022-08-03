@@ -88,52 +88,52 @@ Show ScaleQual where
   show MajorS   = "Major"
   show MinorS   = "Minor"
 
-data Scale' : ScaleQual -> Type where
-  Chromatic'  : Scale' q
-  WholeTone'  : Scale' q
-  Ionian'     : Scale' MajorS
-  Harmonic'   : Scale' q
-  Melodic'    : Scale' MinorS
-  Pentatonic' : Scale' q
-  Blues'      : Scale' q
+data Scale : ScaleQual -> Type where
+  Chromatic  : Scale q
+  WholeTone  : Scale q
+  Ionian     : Scale MajorS
+  Harmonic   : Scale q
+  Melodic    : Scale MinorS
+  Pentatonic : Scale q
+  Blues      : Scale q
 
-MajorScale', MinorScale', NeutralScale' : Type
-MajorScale' = Scale' MajorS
-MinorScale' = Scale' MinorS
+MajorScale, MinorScale, NeutralScale : Type
+MajorScale = Scale MajorS
+MinorScale = Scale MinorS
 
-{q : ScaleQual} -> Show (Scale' q) where
-  show Ionian'     = "Major"
-  show Harmonic'   = "Harmonic \{show q}"
-  show Melodic'    = "Melodic Minor"
-  show Chromatic'  = "Chromatic"
-  show WholeTone'  = "Whole Tone"
-  show Pentatonic' = "\{show q} Pentatonic"
-  show Blues'      = "\{show q} Blues"
+{q : ScaleQual} -> Show (Scale q) where
+  show Ionian     = "Major"
+  show Harmonic   = "Harmonic \{show q}"
+  show Melodic    = "Melodic Minor"
+  show Chromatic  = "Chromatic"
+  show WholeTone  = "Whole Tone"
+  show Pentatonic = "\{show q} Pentatonic"
+  show Blues      = "\{show q} Blues"
 
-majScale's : Vect ? (Scale' MajorS)
-majScale's = [ Ionian'
-             , Blues'
-             , Pentatonic' ]
-minScale's : Vect ? (Scale' MinorS)
-minScale's = [ Harmonic'
-             , Melodic'
-             , Blues'
-             , Pentatonic' ]
-neuScale's : Vect ? (Scale' q)
-neuScale's = [ Chromatic'
-             , WholeTone' ]
+majScales : Vect ? (Scale MajorS)
+majScales = [ Ionian
+             , Blues
+             , Pentatonic ]
+minScales : Vect ? (Scale MinorS)
+minScales = [ Harmonic
+             , Melodic
+             , Blues
+             , Pentatonic ]
+neuScales : Vect ? (Scale q)
+neuScales = [ Chromatic
+             , WholeTone ]
 
-scale'ToNotes : (q : ScaleQual) -> Scale' q -> (n : Nat ** Vect n Note)
-scale'ToNotes q      Chromatic'  = depLen $ fromList [0..11]
-scale'ToNotes q      WholeTone'  = depLen [0, 2, 4, 6, 8, 10]
-scale'ToNotes MajorS Ionian'     = depLen [root, second, majThird, fourth, fifth, majSixth, majSeventh]
-scale'ToNotes MajorS Harmonic'   = ?unimpl
-scale'ToNotes MinorS Harmonic'   = depLen [root, second, minThird, fourth, fifth, minSixth, majSeventh]
-scale'ToNotes MinorS Melodic'    = depLen [root, second, minThird, fourth, fifth, majSixth, majSeventh]
-scale'ToNotes MajorS Pentatonic' = depLen [root, second,           majThird, fifth, majSixth]
-scale'ToNotes MinorS Pentatonic' = depLen [root, minThird, fourth,           fifth, minSeventh]
-scale'ToNotes MajorS Blues'      = depLen [root, second, minThird, majThird, fifth, majSixth]
-scale'ToNotes MinorS Blues'      = depLen [root, minThird, fourth, dimFifth, fifth, minSeventh]
+scaleToNotes : (q : ScaleQual) -> Scale q -> (n : Nat ** Vect n Note)
+scaleToNotes q      Chromatic  = depLen $ fromList [0..11]
+scaleToNotes q      WholeTone  = depLen [0, 2, 4, 6, 8, 10]
+scaleToNotes MajorS Ionian     = depLen [root, second, majThird, fourth, fifth, majSixth, majSeventh]
+scaleToNotes MajorS Harmonic   = ?unimpl
+scaleToNotes MinorS Harmonic   = depLen [root, second, minThird, fourth, fifth, minSixth, majSeventh]
+scaleToNotes MinorS Melodic    = depLen [root, second, minThird, fourth, fifth, majSixth, majSeventh]
+scaleToNotes MajorS Pentatonic = depLen [root, second,           majThird, fifth, majSixth]
+scaleToNotes MinorS Pentatonic = depLen [root, minThird, fourth,           fifth, minSeventh]
+scaleToNotes MajorS Blues      = depLen [root, second, minThird, majThird, fifth, majSixth]
+scaleToNotes MinorS Blues      = depLen [root, minThird, fourth, dimFifth, fifth, minSeventh]
 
 cMaj, gMaj, dMin : Chord
 cMaj = MkChord c Major []
@@ -149,13 +149,13 @@ catIndex : MonadSample m => {n : Nat} -> Vect n Double -> Vect n s -> m s
 catIndex ps ss = pure $ index !(categorical ps) ss
 
 partial
-uniformScale : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale' q -> m (Vect n Note)
+uniformScale : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale q -> m (Vect n Note)
 uniformScale n s = do
-  let (S l ** ns) = scale'ToNotes q s
+  let (S l ** ns) = scaleToNotes q s
   replicateM n $ uniformD ns
 
 partial
-genMelody : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale' q -> m (Vect n Note)
+genMelody : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale q -> m (Vect n Note)
 genMelody n s = do
   case !(uniformD mfrags) of
     Uniform  => uniformScale n s
@@ -172,7 +172,7 @@ genRhythm n p = do
     Just (l, ns') => snoc ns' $ n `minus` l
 
 partial
-genBar : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale' q -> m (k : Nat ** Tune k)
+genBar : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale q -> m (k : Nat ** Tune k)
 genBar n s = do
   dursL <- genRhythm n 0.6
   let l     = length dursL
@@ -182,8 +182,8 @@ genBar n s = do
     Nothing   => ?inaccessible_genBar
     Just durs => (l ** zip notes durs)
 
-genScale' : MonadSample m => {n : Nat} -> Vect n (Scale' q) -> Vect n Double -> m (Scale' q)
-genScale' = flip catIndex
+genScale : MonadSample m => {n : Nat} -> Vect n (Scale q) -> Vect n Double -> m (Scale q)
+genScale = flip catIndex
 
 transpose : Note -> Tune n -> Tune n
 transpose n = map (mapFst (+ n))
@@ -194,9 +194,9 @@ harmonise cs ts = concat $ zipWith (\(MkChord c _ _) => transpose c) cs ts
 partial
 twoFivePrior : MonadSample m => Nat -> m (l : Nat ** Tune l)
 twoFivePrior n = do
-  sTwo  <- genScale' minScale's [0.125, 0.125, 0.25, 0.5]
-  sFive <- genScale' majScale's [1/6, 1/3, 1/2]
-  sOne  <- genScale' majScale's [1/12, 1/12, 5/6]
+  sTwo  <- genScale minScales [0.125, 0.125, 0.25, 0.5]
+  sFive <- genScale majScales [1/6, 1/3, 1/2]
+  sOne  <- genScale majScales [1/12, 1/12, 5/6]
 
   trace ("\D \{show sTwo}, G \{show sFive}, C \{show sOne}") $ pure ()
 
