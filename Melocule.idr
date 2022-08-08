@@ -1,3 +1,5 @@
+module Melocule
+
 import Control.Monad.Bayes.Interface
 import Control.Monad.Bayes.Sampler
 import Data.Buffer

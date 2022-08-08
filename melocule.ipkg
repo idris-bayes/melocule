@@ -1,6 +1,6 @@
-package idrmbt
+package melocule
 -- version =
-authors = "me"
+authors = "Jacob Walters"
 -- maintainers =
 -- license =
 -- brief =
@@ -23,7 +23,7 @@ depends = sop
         , contrib
 
 -- modules to install
--- modules =
+modules = Melocule
 
 -- main file (i.e. file to load at REPL)
 -- main =
@@ -32,8 +32,8 @@ depends = sop
 -- executable =
 -- opts =
 sourcedir = "."
--- builddir =
--- outputdir =
+builddir = "build/"
+outputdir = "bin/"
 
 -- script to run before building
 -- prebuild =
