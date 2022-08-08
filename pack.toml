@@ -1,0 +1,5 @@
+[custom.all.midi]
+type   = "github"
+url    = "https://github.com/idris-bayes/midi"
+commit = "latest:main"
+ipkg   = "midi.ipkg"
