@@ -13,11 +13,9 @@ import Debug.Trace
 %language ElabReflection
 
 
-replicateM : Applicative m => (n : Nat) -> m a -> m (Vect n a)
+replicateM : Applicative m => (n : Nat) -> m a -> m (List a)
 replicateM n xs = sequence $ replicate n xs
 
-depLen : {n : Nat} -> Vect n a -> (n : Nat ** Vect n a)
-depLen xs = (n ** xs)
 
 
 ||| Represents a chord degree. Ostensibly this is Fin 12, but using Nat allows a simpler way
@@ -33,12 +31,12 @@ Duration : Type
 Duration = Nat  -- TODO: use rep that supports e.g. triplets
 
 ||| Represents a melody or melody fragment (with n notes).
-Tune : Nat -> Type
-Tune n = Vect n (Note, Duration)
+Tune : Type
+Tune = List (Note, Duration)
 
 public export
 Jingle : Type
-Jingle = (l : Nat ** Tune l)
+Jingle = Tune
 
 ||| Mnemonics for notes in the key of C.
 c, cs, d, ds, e, f, fs, g, gs, a, bb, b : Note
@@ -71,7 +69,7 @@ data Chord = MkChord Note         -- Root
 Show Chord where
   show (MkChord k q ns) = ppNote k ++ " \{show q} \{show ns}"
 
-ChordProg n = Vect n Chord
+ChordProg = List Chord
 
 ||| Add a chord extension.
 extend : Chord -> Note -> Chord
@@ -92,7 +90,7 @@ dm7 = d.minor.add7
 fM7 = f.major.add7
 gd7 = g.dom.add7
 
-twoFive : Vect ? Chord
+twoFive : ChordProg
 twoFive = [dm7, gd7, cM7]
 
 
@@ -111,7 +109,7 @@ data MelodyFrag = ||| Distribute notes uniformly through a scale.
                   Arpeggio
                 | ||| Walk through the scale.
                   Walk
-mfrags : Vect ? MelodyFrag
+mfrags : List MelodyFrag
 mfrags = [Uniform, Arpeggio, Walk]
 
 data ScaleQual = MajorS
@@ -142,16 +140,16 @@ MinorScale = Scale MinorS
   show Pentatonic = "\{show q} Pentatonic"
   show Blues      = "\{show q} Blues"
 
-majScales : Vect ? (Scale MajorS)
+majScales : List (Scale MajorS)
 majScales = [ Ionian
              , Blues
              , Pentatonic ]
-minScales : Vect ? (Scale MinorS)
+minScales : List (Scale MinorS)
 minScales = [ Harmonic
              , Melodic
              , Blues
              , Pentatonic ]
-neuScales : Vect ? (Scale q)
+neuScales : List (Scale q)
 neuScales = [ Chromatic
              , WholeTone ]
 
@@ -159,48 +157,48 @@ nScales : ScaleQual -> Nat
 nScales MajorS = length majScales
 nScales MinorS = length minScales
 
-getScales : (q : ScaleQual) -> Vect (nScales q) (Scale q)
+getScales : (q : ScaleQual) -> List (Scale q)
 getScales MajorS = majScales
 getScales MinorS = minScales
 
-scaleToNotes : (q : ScaleQual) -> Scale q -> (n : Nat ** Vect n Note)
-scaleToNotes q      Chromatic  = depLen $ fromList [0..11]
-scaleToNotes q      WholeTone  = depLen [0, 2, 4, 6, 8, 10]
-scaleToNotes MajorS Ionian     = depLen [root, second, majThird, fourth, fifth, majSixth, majSeventh]
+scaleToNotes : (q : ScaleQual) -> Scale q -> List Note
+scaleToNotes q      Chromatic  = [0..11]
+scaleToNotes q      WholeTone  = [0, 2, 4, 6, 8, 10]
+scaleToNotes MajorS Ionian     = [root, second, majThird, fourth, fifth, majSixth, majSeventh]
 scaleToNotes MajorS Harmonic   = ?unimpl
-scaleToNotes MinorS Harmonic   = depLen [root, second, minThird, fourth, fifth, minSixth, majSeventh]
-scaleToNotes MinorS Melodic    = depLen [root, second, minThird, fourth, fifth, majSixth, majSeventh]
-scaleToNotes MajorS Pentatonic = depLen [root, second,           majThird, fifth, majSixth]
-scaleToNotes MinorS Pentatonic = depLen [root, minThird, fourth,           fifth, minSeventh]
-scaleToNotes MajorS Blues      = depLen [root, second, minThird, majThird, fifth, majSixth]
-scaleToNotes MinorS Blues      = depLen [root, minThird, fourth, dimFifth, fifth, minSeventh]
+scaleToNotes MinorS Harmonic   = [root, second, minThird, fourth, fifth, minSixth, majSeventh]
+scaleToNotes MinorS Melodic    = [root, second, minThird, fourth, fifth, majSixth, majSeventh]
+scaleToNotes MajorS Pentatonic = [root, second,           majThird, fifth, majSixth]
+scaleToNotes MinorS Pentatonic = [root, minThird, fourth,           fifth, minSeventh]
+scaleToNotes MajorS Blues      = [root, second, minThird, majThird, fifth, majSixth]
+scaleToNotes MinorS Blues      = [root, minThird, fourth, dimFifth, fifth, minSeventh]
 
 
 
-catIndex : MonadSample m => {n : Nat} -> Vect n Double -> Vect n s -> m s
-catIndex ps ss = pure $ index !(categorical ps) ss
+catIndex : MonadSample m => {n : Nat} -> List Double -> List s -> m s
+catIndex ps ss = pure $ index !(categorical $ fromList' [] ps) $ fromList' [] ss
 
 
-uniformScale : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale q -> m (List Note)
+uniformScale : MonadSample m => {q : ScaleQual} -> Nat -> Scale q -> m (List Note)
 uniformScale n s = assert_total $ do
-  let (S _ ** ns) = scaleToNotes q s
-  replicateM n $ uniformD ns
+  let ns = scaleToNotes q s
+  replicateM n $ uniformD $ fromList' [] ns
 
 arpeggiate : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale q -> m (List Note)
 arpeggiate = do
   --dir <- uniformD dirs
   ?arp
 
-endless : forall elem'. Vect n elem' -> Stream elem'
+endless : forall elem'. List elem' -> Stream elem'
 endless xs = endlessAux xs
   where
-    endlessAux : forall n . Vect n elem' -> Stream elem'
+    endlessAux : forall n . List elem' -> Stream elem'
     endlessAux [] = endlessAux xs
     endlessAux (y :: ys) = y :: endlessAux ys
 
 scaleDir : {q : ScaleQual} -> Scale q -> Dir -> (n : Nat) -> List Nat
-scaleDir s Up   n = take n $ endless (scaleToNotes q s).snd
-scaleDir s Down n = reverse $ take n $ endless (scaleToNotes q s).snd
+scaleDir s Up   n = take n $ endless (scaleToNotes q s)
+scaleDir s Down n = reverse $ take n $ endless (scaleToNotes q s)
 
 walk : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale q -> m (List Nat)
 walk n s = do
@@ -210,7 +208,7 @@ walk n s = do
 
 genMelodyFrag : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale q -> m (List Note)
 genMelodyFrag n s = do
-  case !(uniformD mfrags) of
+  case !(uniformD $ fromList' [] mfrags) of
     Uniform  => uniformScale n s
     Arpeggio => uniformScale n s --?unimpl_arp
     Walk     => walk n s
@@ -240,21 +238,19 @@ genBar : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale q -> m Jingle
 genBar n s = do
   durs1 <- genRhythm (n`div`2) 0.62
   durs2 <- genRhythm (n`div`2) 0.62
-  let l     = length durs1 + length durs2
-      dursM = toVect l $ durs1 ++ durs2
+  let durs = durs1 ++ durs2
+      l    = length durs
   notes <- genMelody l s
-  pure $ case dursM of  -- TODO: handle properly
-    Nothing   => ?inaccessible_genBar
-    Just durs => (l ** zip notes durs)
+  pure $ zip notes durs
 
-genScale : MonadSample m => (q : ScaleQual) -> Vect (nScales q) Double -> m (Scale q)
+genScale : MonadSample m => (q : ScaleQual) -> List Double -> m (Scale q)
 genScale MajorS ps = catIndex ps majScales
 genScale MinorS ps = catIndex ps minScales
 
-transpose : Note -> Tune n -> Tune n
+transpose : Note -> Tune -> Tune
 transpose n = map (mapFst (+ n))
 
-harmonise : Vect n Chord -> Vect n (Tune k) -> Tune $ n * k
+harmonise : ChordProg -> List (Tune) -> Tune
 harmonise cs ts = concat $ zipWith (\(MkChord c _ _) => transpose c) cs ts
 
 partial
@@ -266,17 +262,17 @@ twoFivePrior n = do
 
   trace ("\D \{show sTwo}, G \{show sFive}, C \{show sOne}") $ pure ()
 
-  (l2 ** tuneTwo)  <- genBar n sTwo
-  (l5 ** tuneFive) <- genBar n sFive
-  (l1 ** tuneOne)  <- genBar n sOne
+  tuneTwo  <- genBar n sTwo
+  tuneFive <- genBar n sFive
+  tuneOne  <- genBar n sOne
 
-  pure $ (_ ** (transpose second tuneTwo) ++ (transpose fifth tuneFive) ++ tuneOne)
+  pure $ (transpose second tuneTwo) ++ (transpose fifth tuneFive) ++ tuneOne
 
-cycleFive : MonadSample m => m (l : Nat ** Tune l)
+cycleFive : MonadSample m => m Jingle
 cycleFive = do
-  pure (0**[])
+  pure []
 
-twelveBarBluesProg : ChordProg 12
+twelveBarBluesProg : ChordProg
 twelveBarBluesProg =
   [ cM7, cM7, cM7, cM7
   , fM7, fM7, cM7, cM7
@@ -287,7 +283,7 @@ twelveBarBlues = do
   ts <- replicateM 12 $ genBar 12 $ the (Scale MajorS) Blues
   ?bdy
 
-ppTune : Tune n -> IO ()
+ppTune : Tune -> IO ()
 ppTune = printLn . map (mapFst ppNote)
 
 -- TODO: handle duration
@@ -306,7 +302,7 @@ midiPlayNote c n d = [ TE 0               $ MidiEvt $ MkChMsg 0 $ NoteOn  (cast 
 noteToMidiCode : (Note, Duration) -> List TrkEvent
 noteToMidiCode (n, d) = midiPlayNote 1 (n + 60) d
 
-notesToMidiCodes : Tune n -> List TrkEvent
+notesToMidiCodes : Tune -> List TrkEvent
 notesToMidiCodes = concat . map noteToMidiCode
 
 ||| Converts a series of notes to be played into a single chord
@@ -321,7 +317,7 @@ chordToMidiCodes (MkChord _ _ ns) = concat $ parallel $ map (\n => toList $ midi
 midiTrk : List TrkEvent -> Chunk
 midiTrk ns = Track $ ns ++ [TE 1 $ MetaEvt $ EndOfTrack]
 
-genMidiFile : Int -> List Chord -> Tune m -> MidiFile
+genMidiFile : Int -> List Chord -> Tune -> MidiFile
 genMidiFile tpqn cs t = [ Header 1 2 tpqn
                         , midiTrk $ notesToMidiCodes t
                         , midiTrk $ concat $ map chordToMidiCodes cs ]
@@ -330,7 +326,7 @@ setData : Buffer -> List Int -> IO ()
 setData b is = sequence_ $ zipWith (setByte b) [0 .. cast (length is) - 1] is
 
 partial
-test : Tune n -> ChordProg k -> String -> Nat -> IO ()
+test : Tune -> ChordProg -> String -> Nat -> IO ()
 test t cp fn n = do
   let mf = genMidiFile 480 (toList cp) t
       f  = serialise mf
