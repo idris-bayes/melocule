@@ -35,69 +35,113 @@ ppNote x = index (restrict 11 $ cast x) ["C", "C♯", "D", "D♯", "E", "F", "F�
 Duration : Type
 Duration = Nat  -- TODO: use rep that supports e.g. triplets
 
+||| A sequence of tys with attachced durations.
+Sequence : Type -> Type
+Sequence ty = List (ty, Duration)
+
 ||| Represents a melody or melody fragment (with n notes).
 Tune : Type
-Tune = List (Note, Duration)
+Tune = Sequence Note
 
 public export
 Jingle : Type
 Jingle = Tune
 
 ||| Mnemonics for notes in the key of C.
-c, cs, d, ds, e, f, fs, g, gs, a, bb, b : Note
-c  = 0; cs = 1; d  = 2;  ds = 3
-e  = 4; f  = 5; fs = 6;  g  = 7
-gs = 8; a  = 9; bb = 10; b = 11
+C, Cs, D, Ds, E, F, Fs, G, Gs, A, Bb, B : Note
+C  = 0; Cs = 1; D  = 2;  Ds = 3
+E  = 4; F  = 5; Fs = 6;  G  = 7
+Gs = 8; A  = 9; Bb = 10; B = 11
 
 ||| Mnemonics for intervals in arbitrary scales.
 root, flatSecond, second, minThird, majThird, fourth, dimFifth, fifth, minSixth, majSixth, minSeventh, majSeventh : Note
 root     = 0; flatSecond = 1; second     = 2; minThird    = 3
 majThird = 4; fourth     = 5; dimFifth   = 6; fifth       = 7
 minSixth = 8; majSixth   = 9; minSeventh = 10; majSeventh = 11
+
 tritone = dimFifth
 augFifth = minSixth
 
+minNinth = 12 + flatSecond
+majNinth = 12 + second
+
 ||| Chord qualities.
 data ChordQual = Major
-               | Minor
                | Dominant
+               | Minor
 %runElab derive "ChordQual" [Generic, Eq]
 Show ChordQual where
   show Major    = "Major"
-  show Minor    = "Minor"
   show Dominant = "Dominant"
+  show Minor    = "Minor"
 
-data Chord = MkChord Note         -- Root
+data Chord = MkChord Note          -- Root
                      ChordQual
                      (List1 Note)  -- List of notes in chord
 %runElab derive "Chord" [Generic, Eq]
 Show Chord where
   show (MkChord k q ns) = ppNote k ++ " \{show q} \{show ns}"
 
-ChordProg = List Chord
+ChordProg = Sequence Chord
+mkChordProg : List Chord -> Nat -> ChordProg
+mkChordProg cs n = map (\c => (c, n)) cs
+
 
 ||| Add a chord extension.
 extend : Chord -> Note -> Chord
 extend (MkChord k q ns) n = MkChord k q (snoc ns $ n+k)
 
 (.major), (.minor), (.dom) : Note -> Chord
-(.major) n = MkChord n Major    (map (+n) $ c:::[e,  g])
-(.minor) n = MkChord n Minor    (map (+n) $ c:::[ds, g])
-(.dom)   n = MkChord n Dominant (map (+n) $ c:::[e,  g])
+(.major) n = MkChord n Major    (map (+n) $ C:::[E,  G])
+(.dom)   n = MkChord n Dominant (map (+n) $ C:::[E,  G])
+(.minor) n = MkChord n Minor    (map (+n) $ C:::[Ds, G])
 
-(.add7) : Chord -> Chord
+(.add6) : Chord -> Chord
+(.add6) c@(MkChord _ Major _)    = extend c majSixth
+(.add6) c@(MkChord _ Dominant _) = extend c majSixth
+(.add6) c@(MkChord _ Minor _)    = extend c minSixth
+
+(.b7), (.s7), (.add7) : Chord -> Chord
+(.b7) c = extend c minSeventh
+(.s7) c = extend c majSeventh
 (.add7) c@(MkChord _ Major _)    = extend c majSeventh
-(.add7) c@(MkChord _ Minor _)    = extend c minSeventh
 (.add7) c@(MkChord _ Dominant _) = extend c minSeventh
+(.add7) c@(MkChord _ Minor _)    = extend c minSeventh
 
-cM7 = c.major.add7
-dm7 = d.minor.add7
-fM7 = f.major.add7
-gd7 = g.dom.add7
+(.b9), (.s9), (.add9) : Chord -> Chord
+(.b9) c = extend c minNinth
+(.s9) c = extend c majNinth
+(.add9) c@(MkChord _ Major _)    = extend c majNinth
+(.add9) c@(MkChord _ Dominant _) = extend c majNinth
+(.add9) c@(MkChord _ Minor _)    = extend c minNinth
 
-twoFive : ChordProg
-twoFive = [dm7, gd7, cM7]
+cM6 = C .major.add6
+cM7 = C .major.add7
+cd7 = C .dom.add7
+cd9 = cd7.add9
+dm7 = D .minor.add7
+fM7 = F .major.add7
+fd7 = F .dom.add7
+fd9 = fd7.add9
+gd7 = G .dom.add7
+gd9 = gd7.add9
 
+twoFive, twelveBarBlues, twelveBarBluesFancy : Nat -> ChordProg
+twoFive = mkChordProg [dm7, gd7, cM7]
+
+twelveBarBlues = mkChordProg
+  [ cd7, cd7, cd7, cd7
+  , fd7, fd7, cd7, cd7
+  , gd7, fd7, cd7, cd7 ]
+
+twelveBarBluesFancy = mkChordProg
+  [ cd7, cd7, cd9, cd7
+  , fd7, fd7, cd7, cd7
+  , gd7, fd7, cd7, gd9
+
+  , cd7, fd7, cd7, cd7
+  , fd7, fd9, cd7, cd7
+  , gd7, fd7, cd7, cM6 ]
 
 
 
@@ -237,11 +281,12 @@ scanl f x (y :: xs) = x :: scanl f (f x y) xs
 fragment : MonadSample m => (n : Nat) -> Double -> m (List Nat)
 fragment n p = do
   ns <- replicateM n $ geometric p
-  pure $ case last' $ takeWhile (\x => fst x < n)
-       $ toList
+  pure $ case last' $ takeWhile (\x => fst x <= n)
        $ scanl (\(acc, l),e=>(acc+e, snoc l e)) (0, Prelude.Nil) ns of
     Nothing       => [n]
-    Just (l, ns') => snoc ns' $ n `minus` l
+    Just (l, ns') => if n == l
+                        then ns'
+                        else snoc ns' $ n `minus` l
 
 genMelody : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale q -> m (List Note)
 genMelody n s = do
@@ -278,8 +323,8 @@ genScale MinorS ps = catIndex ps minScales
 transpose : Note -> Tune -> Tune
 transpose n = map (mapFst (+ n))
 
-harmonise : ChordProg -> List (Tune) -> Tune
-harmonise cs ts = concat $ zipWith (\(MkChord c _ _) => transpose c) cs ts
+requantise : Nat -> Sequence a -> Sequence a
+requantise n = map (mapSnd (* n))
 
 partial
 twoFivePrior : MonadSample m => Nat -> m Jingle
@@ -300,19 +345,37 @@ cycleFive : MonadSample m => m Jingle
 cycleFive = do
   pure []
 
-twelveBarBluesProg : ChordProg
-twelveBarBluesProg =
-  [ cM7, cM7, cM7, cM7
-  , fM7, fM7, cM7, cM7
-  , gd7, gd7, cM7, cM7 ]
-
-twelveBarBlues : MonadSample m => m Jingle
-twelveBarBlues = do
-  ts <- replicateM 12 $ genBar 12 $ the (Scale MajorS) Blues
-  ?bdy
+nBarBlues : MonadSample m => Nat -> m Jingle
+nBarBlues n = map concat $ replicateM n (bluesOrPenta >>= genBar 16)
+  where bluesOrPenta : m (Scale MajorS)
+        bluesOrPenta = uniformD [Blues, Pentatonic]
 
 ppTune : Tune -> IO ()
 ppTune = printLn . map (mapFst ppNote)
+
+altMapAcc : Nat -> (a -> a) -> List a -> List a
+altMapAcc acc f [] = []
+altMapAcc acc f (x :: xs) = (if acc `mod` 2 == 0 then f x else x)
+                         :: altMapAcc (S acc) f xs
+
+||| Maps over alternating elements in a list. altMap maps from the first element,
+||| altMap' from the second.
+altMap, altMap' : (a -> a) -> List a -> List a
+altMap  = altMapAcc 0
+altMap' = altMapAcc 1
+
+data Swing = Straight | Swung | Shuffled
+
+playIt : Swing -> Sequence a -> Sequence a
+playIt Straight = requantise 6
+playIt Swung    = requantise 4 . altMap (mapSnd (* 2))
+playIt Shuffled = requantise 3 . altMap (mapSnd (* 3))
+
+-- ||| swingIt and shuffleIt both multiply the quantisation in order to
+-- ||| alter where the notes land.
+-- swingIt, shuffleIt : Tune -> ChordProg -> Tune
+-- swingIt   = altMap (mapSnd (* 2))
+-- shuffleIt = altMap (mapSnd (* 3))
 
 -- TODO: handle duration
 dur2dT : Int -> Duration -> Int
@@ -321,17 +384,15 @@ dur2dT tpqn d = cast d * (tpqn `div` 4)
 immediately : TrkEvent -> TrkEvent
 immediately (TE _ e) = TE 0 e
 
-midiPlayNote : Channel -> Note -> Duration -> List TrkEvent
-midiPlayNote c n d = [ TE 0               $ MidiEvt $ MkChMsg 0 $ NoteOn  (cast n) 64
-                   , TE (dur2dT tpqn d) $ MidiEvt $ MkChMsg 0 $ NoteOff (cast n) 64 ]
-  where tpqn : Int
-        tpqn = 480
+midiPlayNote : Int -> Channel -> Note -> Duration -> List TrkEvent
+midiPlayNote tpqn c n d = [ TE 0               $ MidiEvt $ MkChMsg 0 $ NoteOn  (cast n) 64
+                          , TE (dur2dT tpqn d) $ MidiEvt $ MkChMsg 0 $ NoteOff (cast n) 64 ]
 
-noteToMidiCode : (Note, Duration) -> List TrkEvent
-noteToMidiCode (n, d) = midiPlayNote 1 (n + 60) d
+noteToMidiCode : Int -> (Note, Duration) -> List TrkEvent
+noteToMidiCode tpqn (n, d) = midiPlayNote tpqn 1 (n + 60) d
 
-notesToMidiCodes : Tune -> List TrkEvent
-notesToMidiCodes = concat . map noteToMidiCode
+notesToMidiCodes : Int -> Tune -> List TrkEvent
+notesToMidiCodes tpqn = concat . map (noteToMidiCode tpqn)
 
 ||| Converts a series of notes to be played into a single chord
 ||| This prevents cascading delta-times.
@@ -339,24 +400,28 @@ parallel : List1 (List TrkEvent) -> List (List TrkEvent)
 parallel (t:::ts) = transpose $ t :: map (map immediately) ts
 
 -- hacky
-chordToMidiCodes : Chord -> List TrkEvent
-chordToMidiCodes (MkChord _ _ ns) = concat $ parallel $ map (\n => toList $ midiPlayNote 2 (n + 48) 16) ns
+chordToMidiCodes : Int -> Chord -> List TrkEvent
+chordToMidiCodes tpqn (MkChord _ _ ns) = concat
+                                       $ parallel
+                                       $ map (\n => toList
+                                                  $ midiPlayNote tpqn 2 (n + 48) 16)
+                                             ns
 
 midiTrk : List TrkEvent -> Chunk
 midiTrk ns = Track $ ns ++ [TE 1 $ MetaEvt $ EndOfTrack]
 
 genMidiFile : Int -> List Chord -> Tune -> MidiFile
 genMidiFile tpqn cs t = [ Header 1 2 tpqn
-                        , midiTrk $ notesToMidiCodes t
-                        , midiTrk $ concat $ map chordToMidiCodes cs ]
+                        , midiTrk $ notesToMidiCodes tpqn t
+                        , midiTrk $ concat $ map (chordToMidiCodes tpqn) cs ]
 
 setData : Buffer -> List Int -> IO ()
 setData b is = sequence_ $ zipWith (setByte b) [0 .. cast (length is) - 1] is
 
 partial
-test : Tune -> ChordProg -> String -> Nat -> IO ()
-test t cp fn n = do
-  let mf = genMidiFile 480 (toList cp) t
+test : Tune -> Int -> ChordProg -> Nat -> String -> IO ()
+test t tpqn cp n fn = do
+  let mf = genMidiFile 480 (map fst cp) t
       f  = serialise mf
       l  = cast $ length f
   case !(newBuffer l) of
@@ -367,13 +432,16 @@ test t cp fn n = do
         Left (err, n) => "Error after writing \{show n} bytes: \{show err}"
         Right ()      => "written to " ++ fn
 
+testDefs : Swing -> Tune -> (Nat -> ChordProg) -> String -> IO ()
+testDefs s t cp = test (playIt s t) 40 (cp $ 16) 192
+
 test251 : String -> IO ()
 test251 fn = do
   t <- sampleIO $ twoFivePrior 16
-  test t twoFive fn 16
+  testDefs Straight t twoFive fn
 
 test12bb : String -> IO ()
-test12bb fn = do
-  tbb <- sampleIO twelveBarBlues
+test12bb fn = testDefs Straight !(sampleIO $ nBarBlues 12) twelveBarBlues fn
 
-  test tbb twelveBarBluesProg fn 16
+test12bbf : String -> IO ()
+test12bbf fn = testDefs Swung !(sampleIO $ nBarBlues 24) twelveBarBluesFancy fn
