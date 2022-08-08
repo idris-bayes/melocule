@@ -2,14 +2,17 @@ import Control.Monad.Bayes.Interface
 import Control.Monad.Bayes.Sampler
 import Data.Buffer
 import Data.List1
+import Data.List
 import Data.Vect
 import Generics.Derive
 import Sound.Midi.Types
 import Sound.Midi.Serialise
 import System.File.Buffer
 
+import Syntax.WithProof
+
 import Debug.Trace
-  
+
 %language ElabReflection
 
 
@@ -143,7 +146,8 @@ MinorScale = Scale MinorS
 majScales : List (Scale MajorS)
 majScales = [ Ionian
              , Blues
-             , Pentatonic ]
+             , Pentatonic 
+             , Harmonic]
 minScales : List (Scale MinorS)
 minScales = [ Harmonic
              , Melodic
@@ -165,7 +169,7 @@ scaleToNotes : (q : ScaleQual) -> Scale q -> List Note
 scaleToNotes q      Chromatic  = [0..11]
 scaleToNotes q      WholeTone  = [0, 2, 4, 6, 8, 10]
 scaleToNotes MajorS Ionian     = [root, second, majThird, fourth, fifth, majSixth, majSeventh]
-scaleToNotes MajorS Harmonic   = ?unimpl
+scaleToNotes MajorS Harmonic   = [root, second, majThird, fourth, fifth, minSixth, majSeventh]
 scaleToNotes MinorS Harmonic   = [root, second, minThird, fourth, fifth, minSixth, majSeventh]
 scaleToNotes MinorS Melodic    = [root, second, minThird, fourth, fifth, majSixth, majSeventh]
 scaleToNotes MajorS Pentatonic = [root, second,           majThird, fifth, majSixth]
@@ -174,15 +178,23 @@ scaleToNotes MajorS Blues      = [root, second, minThird, majThird, fifth, majSi
 scaleToNotes MinorS Blues      = [root, minThird, fourth, dimFifth, fifth, minSeventh]
 
 
-
-catIndex : MonadSample m => {n : Nat} -> List Double -> List s -> m s
-catIndex ps ss = pure $ index !(categorical $ fromList' [] ps) $ fromList' [] ss
-
+catIndex : MonadSample m => (weights : List Double) -> (categories : List s) ->
+  (0 ford : length weights === length categories) =>
+  m s
+catIndex ps ss = do
+  let ps' := Vect.fromList ps
+      ss' := Vect.fromList ss
+  pure $
+    index !(categorical $ rewrite sym ford in ps') $ ss'
 
 uniformScale : MonadSample m => {q : ScaleQual} -> Nat -> Scale q -> m (List Note)
 uniformScale n s = assert_total $ do
   let ns = scaleToNotes q s
-  replicateM n $ uniformD $ fromList' [] ns
+      (S n ** prf) := @@(length ns)
+      | _ => pure []
+  replicateM n $ uniformD
+               $ replace {p = \u => Vect u Nat} prf
+               $ fromList ns
 
 arpeggiate : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale q -> m (List Note)
 arpeggiate = do
@@ -192,7 +204,7 @@ arpeggiate = do
 endless : forall elem'. List elem' -> Stream elem'
 endless xs = endlessAux xs
   where
-    endlessAux : forall n . List elem' -> Stream elem'
+    endlessAux : List elem' -> Stream elem'
     endlessAux [] = endlessAux xs
     endlessAux (y :: ys) = y :: endlessAux ys
 
@@ -213,12 +225,19 @@ genMelodyFrag n s = do
     Arpeggio => uniformScale n s --?unimpl_arp
     Walk     => walk n s
 
+-- TODO: put in stdlib's contrib
+scanl : forall elem. (res -> elem -> res) -> res -> List elem -> List res
+scanl f x [] = [x]
+scanl f x (y :: xs) = x :: scanl f (f x y) xs
+
 ||| Generates a random number of nats that sum to n. The numbers are generated geometrically,
 ||| meaning lower p-values tend to give shorter lists of larger numbers.
 fragment : MonadSample m => (n : Nat) -> Double -> m (List Nat)
 fragment n p = do
   ns <- replicateM n $ geometric p
-  pure $ case last' $ takeWhile (\x => fst x < n) $ toList $ scanl (\(acc, l),e=>(acc+e, snoc l e)) (0, Prelude.Nil) ns of
+  pure $ case last' $ takeWhile (\x => fst x < n)
+       $ toList
+       $ scanl (\(acc, l),e=>(acc+e, snoc l e)) (0, Prelude.Nil) ns of
     Nothing       => [n]
     Just (l, ns') => snoc ns' $ n `minus` l
 
@@ -243,7 +262,14 @@ genBar n s = do
   notes <- genMelody l s
   pure $ zip notes durs
 
-genScale : MonadSample m => (q : ScaleQual) -> List Double -> m (Scale q)
+silly : (q : ScaleQual) -> Nat
+silly MajorS = length majScales
+silly MinorS = length minScales
+
+
+genScale : MonadSample m => (q : ScaleQual) -> (weights : List Double) ->
+  (0 ford : length weights = silly q) =>
+  m (Scale q)
 genScale MajorS ps = catIndex ps majScales
 genScale MinorS ps = catIndex ps minScales
 
@@ -257,8 +283,8 @@ partial
 twoFivePrior : MonadSample m => Nat -> m Jingle
 twoFivePrior n = do
   sTwo  <- genScale MinorS [0.125, 0.125, 0.25, 0.5]
-  sFive <- genScale MajorS [1/6, 1/3, 1/2]
-  sOne  <- genScale MajorS [1/12, 1/12, 5/6]
+  sFive <- genScale MajorS [1/6, 1/3, 1/4, 1/4]
+  sOne  <- genScale MajorS [1/12, 1/12, 3/6, 2/6]
 
   trace ("\D \{show sTwo}, G \{show sFive}, C \{show sOne}") $ pure ()
 
@@ -341,10 +367,11 @@ test t cp fn n = do
 
 test251 : String -> IO ()
 test251 fn = do
-  (_**t) <- sampleIO $ twoFivePrior 16
+  t <- sampleIO $ twoFivePrior 16
   test t twoFive fn 16
 
 test12bb : String -> IO ()
 test12bb fn = do
-  (_**tbb) <- sampleIO twelveBarBlues
+  tbb <- sampleIO twelveBarBlues
+
   test tbb twelveBarBluesProg fn 16
