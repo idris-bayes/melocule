@@ -246,6 +246,7 @@ test t tpqn cp n fn = do
         Left (err, n) => "Error after writing \{show n} bytes: \{show err}"
         Right ()      => "written to " ++ fn
 
+-- TODO: The maths here is incorrect
 testDefs : Swing -> Tune -> (Nat -> ChordProg) -> String -> IO ()
 testDefs s t cp = test (playIt s t) 40 (cp $ 16) 192
 
