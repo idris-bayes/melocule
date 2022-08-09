@@ -9,9 +9,10 @@ import Data.Vect
 import Generics.Derive
 import Sound.Midi.Types
 import Sound.Midi.Serialise
+import Syntax.WithProof
 import System.File.Buffer
 
-import Syntax.WithProof
+import Music.Theory
 
 import Debug.Trace
 
@@ -20,130 +21,6 @@ import Debug.Trace
 
 replicateM : Applicative m => (n : Nat) -> m a -> m (List a)
 replicateM n xs = sequence $ replicate n xs
-
-
-
-||| Represents a chord degree. Ostensibly this is Fin 12, but using Nat allows a simpler way
-||| of representing notes that go outside of an octave.
-Note : Type
-Note = Nat
-
-ppNote : Note -> String
-ppNote x = index (restrict 11 $ cast x) ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "B♭", "B"]
-
-||| Duration of a note, represented as number of semiquavers/sixteenth notes in the interval.
-Duration : Type
-Duration = Nat  -- TODO: use rep that supports e.g. triplets
-
-||| A sequence of tys with attachced durations.
-Sequence : Type -> Type
-Sequence ty = List (ty, Duration)
-
-||| Represents a melody or melody fragment (with n notes).
-Tune : Type
-Tune = Sequence Note
-
-public export
-Jingle : Type
-Jingle = Tune
-
-||| Mnemonics for notes in the key of C.
-C, Cs, D, Ds, E, F, Fs, G, Gs, A, Bb, B : Note
-C  = 0; Cs = 1; D  = 2;  Ds = 3
-E  = 4; F  = 5; Fs = 6;  G  = 7
-Gs = 8; A  = 9; Bb = 10; B = 11
-
-||| Mnemonics for intervals in arbitrary scales.
-root, flatSecond, second, minThird, majThird, fourth, dimFifth, fifth, minSixth, majSixth, minSeventh, majSeventh : Note
-root     = 0; flatSecond = 1; second     = 2; minThird    = 3
-majThird = 4; fourth     = 5; dimFifth   = 6; fifth       = 7
-minSixth = 8; majSixth   = 9; minSeventh = 10; majSeventh = 11
-
-tritone = dimFifth
-augFifth = minSixth
-
-minNinth = 12 + flatSecond
-majNinth = 12 + second
-
-||| Chord qualities.
-data ChordQual = Major
-               | Dominant
-               | Minor
-%runElab derive "ChordQual" [Generic, Eq]
-Show ChordQual where
-  show Major    = "Major"
-  show Dominant = "Dominant"
-  show Minor    = "Minor"
-
-data Chord = MkChord Note          -- Root
-                     ChordQual
-                     (List1 Note)  -- List of notes in chord
-%runElab derive "Chord" [Generic, Eq]
-Show Chord where
-  show (MkChord k q ns) = ppNote k ++ " \{show q} \{show ns}"
-
-ChordProg = Sequence Chord
-mkChordProg : List Chord -> Nat -> ChordProg
-mkChordProg cs n = map (\c => (c, n)) cs
-
-
-||| Add a chord extension.
-extend : Chord -> Note -> Chord
-extend (MkChord k q ns) n = MkChord k q (snoc ns $ n+k)
-
-(.major), (.minor), (.dom) : Note -> Chord
-(.major) n = MkChord n Major    (map (+n) $ C:::[E,  G])
-(.dom)   n = MkChord n Dominant (map (+n) $ C:::[E,  G])
-(.minor) n = MkChord n Minor    (map (+n) $ C:::[Ds, G])
-
-(.add6) : Chord -> Chord
-(.add6) c@(MkChord _ Major _)    = extend c majSixth
-(.add6) c@(MkChord _ Dominant _) = extend c majSixth
-(.add6) c@(MkChord _ Minor _)    = extend c minSixth
-
-(.b7), (.s7), (.add7) : Chord -> Chord
-(.b7) c = extend c minSeventh
-(.s7) c = extend c majSeventh
-(.add7) c@(MkChord _ Major _)    = extend c majSeventh
-(.add7) c@(MkChord _ Dominant _) = extend c minSeventh
-(.add7) c@(MkChord _ Minor _)    = extend c minSeventh
-
-(.b9), (.s9), (.add9) : Chord -> Chord
-(.b9) c = extend c minNinth
-(.s9) c = extend c majNinth
-(.add9) c@(MkChord _ Major _)    = extend c majNinth
-(.add9) c@(MkChord _ Dominant _) = extend c majNinth
-(.add9) c@(MkChord _ Minor _)    = extend c minNinth
-
-cM6 = C .major.add6
-cM7 = C .major.add7
-cd7 = C .dom.add7
-cd9 = cd7.add9
-dm7 = D .minor.add7
-fM7 = F .major.add7
-fd7 = F .dom.add7
-fd9 = fd7.add9
-gd7 = G .dom.add7
-gd9 = gd7.add9
-
-twoFive, twelveBarBlues, twelveBarBluesFancy : Nat -> ChordProg
-twoFive = mkChordProg [dm7, gd7, cM7]
-
-twelveBarBlues = mkChordProg
-  [ cd7, cd7, cd7, cd7
-  , fd7, fd7, cd7, cd7
-  , gd7, fd7, cd7, cd7 ]
-
-twelveBarBluesFancy = mkChordProg
-  [ cd7, cd7, cd9, cd7
-  , fd7, fd7, cd7, cd7
-  , gd7, fd7, cd7, gd9
-
-  , cd7, fd7, cd7, cd7
-  , fd7, fd9, cd7, cd7
-  , gd7, fd7, cd7, cM6 ]
-
-
 
 ||| Direction for a meldoy fragment to proceed in.
 data Dir = Up
@@ -160,70 +37,6 @@ data MelodyFrag = ||| Distribute notes uniformly through a scale.
                   Walk
 mfrags : List MelodyFrag
 mfrags = [Uniform, Arpeggio, Walk]
-
-data ScaleQual = MajorS
-               | MinorS
-Show ScaleQual where
-  show MajorS   = "Major"
-  show MinorS   = "Minor"
-
-data Scale : ScaleQual -> Type where
-  Chromatic  : Scale q
-  WholeTone  : Scale q
-  Ionian     : Scale MajorS
-  Harmonic   : Scale q
-  Melodic    : Scale MinorS
-  Pentatonic : Scale q
-  Blues      : Scale q
-
-MajorScale, MinorScale, NeutralScale : Type
-MajorScale = Scale MajorS
-MinorScale = Scale MinorS
-
-{q : ScaleQual} -> Show (Scale q) where
-  show Ionian     = "Major"
-  show Harmonic   = "Harmonic \{show q}"
-  show Melodic    = "Melodic Minor"
-  show Chromatic  = "Chromatic"
-  show WholeTone  = "Whole Tone"
-  show Pentatonic = "\{show q} Pentatonic"
-  show Blues      = "\{show q} Blues"
-
-majScales : List (Scale MajorS)
-majScales = [ Ionian
-             , Blues
-             , Pentatonic 
-             , Harmonic]
-minScales : List (Scale MinorS)
-minScales = [ Harmonic
-             , Melodic
-             , Blues
-             , Pentatonic ]
-neuScales : List (Scale q)
-neuScales = [ Chromatic
-             , WholeTone ]
-
-nScales : ScaleQual -> Nat
-nScales MajorS = length majScales
-nScales MinorS = length minScales
-
-getScales : (q : ScaleQual) -> List (Scale q)
-getScales MajorS = majScales
-getScales MinorS = minScales
-
-scaleToNotes : (q : ScaleQual) -> Scale q -> List Note
-scaleToNotes q      Chromatic  = [0..11]
-scaleToNotes q      WholeTone  = [0, 2, 4, 6, 8, 10]
-scaleToNotes MajorS Ionian     = [root, second, majThird, fourth, fifth, majSixth, majSeventh]
-scaleToNotes MajorS Harmonic   = [root, second, majThird, fourth, fifth, minSixth, majSeventh]
-scaleToNotes MinorS Harmonic   = [root, second, minThird, fourth, fifth, minSixth, majSeventh]
-scaleToNotes MinorS Melodic    = [root, second, minThird, fourth, fifth, majSixth, majSeventh]
-scaleToNotes MajorS Pentatonic = [root, second,           majThird, fifth, majSixth]
-scaleToNotes MinorS Pentatonic = [root, minThird, fourth,           fifth, minSeventh]
-scaleToNotes MajorS Blues      = [root, second, minThird, majThird, fifth, majSixth]
-scaleToNotes MinorS Blues      = [root, minThird, fourth, dimFifth, fifth, minSeventh]
-
-
 catIndex : MonadSample m => (weights : List Double) -> (categories : List s) ->
   (0 ford : length weights === length categories) =>
   m s
@@ -300,7 +113,7 @@ genRhythm : MonadSample m => (n : Nat) -> Double -> m (List Duration)
 genRhythm = fragment
 
 partial
-genBar : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale q -> m Jingle
+genBar : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale q -> m Tune
 genBar n s = do
   durs1 <- genRhythm (n`div`2) 0.62
   durs2 <- genRhythm (n`div`2) 0.62
@@ -309,13 +122,8 @@ genBar n s = do
   notes <- genMelody l s
   pure $ zip notes durs
 
-silly : (q : ScaleQual) -> Nat
-silly MajorS = length majScales
-silly MinorS = length minScales
-
-
 genScale : MonadSample m => (q : ScaleQual) -> (weights : List Double) ->
-  (0 ford : length weights = silly q) =>
+  (0 ford : length weights = nScales q) =>
   m (Scale q)
 genScale MajorS ps = catIndex ps majScales
 genScale MinorS ps = catIndex ps minScales
@@ -327,7 +135,7 @@ requantise : Nat -> Sequence a -> Sequence a
 requantise n = map (mapSnd (* n))
 
 partial
-twoFivePrior : MonadSample m => Nat -> m Jingle
+twoFivePrior : MonadSample m => Nat -> m Tune
 twoFivePrior n = do
   sTwo  <- genScale MinorS [0.125, 0.125, 0.25, 0.5]
   sFive <- genScale MajorS [1/6, 1/3, 1/4, 1/4]
@@ -341,11 +149,11 @@ twoFivePrior n = do
 
   pure $ (transpose second tuneTwo) ++ (transpose fifth tuneFive) ++ tuneOne
 
-cycleFive : MonadSample m => m Jingle
+cycleFive : MonadSample m => m Tune
 cycleFive = do
   pure []
 
-nBarBlues : MonadSample m => Nat -> m Jingle
+nBarBlues : MonadSample m => Nat -> m Tune
 nBarBlues n = map concat $ replicateM n (bluesOrPenta >>= genBar 16)
   where bluesOrPenta : m (Scale MajorS)
         bluesOrPenta = uniformD [Blues, Pentatonic]
