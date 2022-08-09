@@ -55,11 +55,6 @@ uniformScale n s = assert_total $ do
                $ replace {p = \u => Vect u Nat} prf
                $ fromList ns
 
-arpeggiate : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale q -> m (List Note)
-arpeggiate = do
-  --dir <- uniformD dirs
-  ?arp
-
 endless : forall elem'. List elem' -> Stream elem'
 endless xs = endlessAux xs
   where
@@ -67,21 +62,29 @@ endless xs = endlessAux xs
     endlessAux [] = endlessAux xs
     endlessAux (y :: ys) = y :: endlessAux ys
 
+runDir : Dir -> Nat -> List a -> List a
+runDir Up   n = take n . endless
+runDir Down n = reverse . take n . endless
+
 scaleDir : {q : ScaleQual} -> Scale q -> Dir -> (n : Nat) -> List Nat
-scaleDir s Up   n = take n $ endless (scaleToNotes q s)
-scaleDir s Down n = reverse $ take n $ endless (scaleToNotes q s)
+scaleDir s d n = runDir d n $ scaleToNotes q s
+
+arpeggiate : MonadSample m => Nat -> Chord -> m (List Note)
+arpeggiate n (MkChord _ _ ns) = do
+  d <- uniformD dirs
+  let ns' := runDir d n $ toList ns
+  pure ns'
 
 walk : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale q -> m (List Nat)
 walk n s = do
   dir <- uniformD dirs
   pure $ scaleDir s dir n
 
-
-genMelodyFrag : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale q -> m (List Note)
-genMelodyFrag n s = do
+genMelodyFrag : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale q -> Chord -> m (List Note)
+genMelodyFrag n s c = do
   case !(uniformD $ fromList' [] mfrags) of
     Uniform  => uniformScale n s
-    Arpeggio => uniformScale n s --?unimpl_arp
+    Arpeggio => arpeggiate n c
     Walk     => walk n s
 
 -- TODO: put in stdlib's contrib
@@ -101,10 +104,10 @@ fragment n p = do
                         then ns'
                         else snoc ns' $ n `minus` l
 
-genMelody : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale q -> m (List Note)
-genMelody n s = do
+genMelody : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale q -> Chord -> m (List Note)
+genMelody n s c = do
   ls <- fragment n 0.2
-  nss <- sequence $ map (\l => genMelodyFrag l s) ls
+  nss <- sequence $ map (\l => genMelodyFrag l s c) ls
   pure $ concat nss
 
 ||| Generates random durations that add up to n. `p` determines likelihood of
@@ -113,13 +116,13 @@ genRhythm : MonadSample m => (n : Nat) -> Double -> m (List Duration)
 genRhythm = fragment
 
 partial
-genBar : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale q -> m Tune
-genBar n s = do
+genBar : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale q -> Chord -> m Tune
+genBar n s c = do
   durs1 <- genRhythm (n`div`2) 0.62
   durs2 <- genRhythm (n`div`2) 0.62
   let durs = durs1 ++ durs2
       l    = length durs
-  notes <- genMelody l s
+  notes <- genMelody l s c
   pure $ zip notes durs
 
 genScale : MonadSample m => (q : ScaleQual) -> (weights : List Double) ->
@@ -143,9 +146,9 @@ twoFivePrior n = do
 
   trace ("\D \{show sTwo}, G \{show sFive}, C \{show sOne}") $ pure ()
 
-  tuneTwo  <- genBar n sTwo
-  tuneFive <- genBar n sFive
-  tuneOne  <- genBar n sOne
+  tuneTwo  <- genBar n sTwo dm7
+  tuneFive <- genBar n sFive gd7
+  tuneOne  <- genBar n sOne cM7
 
   pure $ (transpose second tuneTwo) ++ (transpose fifth tuneFive) ++ tuneOne
 
@@ -154,7 +157,10 @@ cycleFive = do
   pure []
 
 nBarBlues : MonadSample m => Nat -> m Tune
-nBarBlues n = map concat $ replicateM n (bluesOrPenta >>= genBar 16)
+nBarBlues n = do
+  scale <- bluesOrPenta
+  ns <- replicateM n (genBar 16 scale cd7) -- TODO: take chordprog and change this
+  pure $ concat ns
   where bluesOrPenta : m (Scale MajorS)
         bluesOrPenta = uniformD [Blues, Pentatonic]
 
