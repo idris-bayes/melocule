@@ -14,10 +14,6 @@ import System.File.Buffer
 
 import Music.Theory
 
-import Debug.Trace
-
-%language ElabReflection
-
 
 replicateM : Applicative m => (n : Nat) -> m a -> m (List a)
 replicateM n xs = sequence $ replicate n xs
@@ -37,6 +33,8 @@ data MelodyFrag = ||| Distribute notes uniformly through a scale.
                   Walk
 mfrags : List MelodyFrag
 mfrags = [Uniform, Arpeggio, Walk]
+
+
 catIndex : MonadSample m => (weights : List Double) -> (categories : List s) ->
   (0 ford : length weights === length categories) =>
   m s
@@ -116,7 +114,7 @@ genRhythm : MonadSample m => (n : Nat) -> Double -> m (List Duration)
 genRhythm = fragment
 
 partial
-genBar : MonadSample m => {q : ScaleQual} -> (n : Nat) -> Scale q -> Chord -> m Tune
+genBar : MonadSample m => {q : ScaleQual} -> Nat -> Scale q -> Chord -> m Tune
 genBar n s c = do
   durs1 <- genRhythm (n`div`2) 0.62
   durs2 <- genRhythm (n`div`2) 0.62
@@ -143,8 +141,6 @@ twoFivePrior n = do
   sTwo  <- genScale MinorS [0.125, 0.125, 0.25, 0.5]
   sFive <- genScale MajorS [1/6, 1/3, 1/4, 1/4]
   sOne  <- genScale MajorS [1/12, 1/12, 3/6, 2/6]
-
-  trace ("\D \{show sTwo}, G \{show sFive}, C \{show sOne}") $ pure ()
 
   tuneTwo  <- genBar n sTwo dm7
   tuneFive <- genBar n sFive gd7
@@ -191,22 +187,21 @@ playIt Shuffled = requantise 3 . altMap (mapSnd (* 3))
 -- swingIt   = altMap (mapSnd (* 2))
 -- shuffleIt = altMap (mapSnd (* 3))
 
--- TODO: handle duration
-dur2dT : Int -> Duration -> Int
-dur2dT tpqn d = cast d * (tpqn `div` 4)
+dur2dT : Int -> Duration -> Nat -> Int
+dur2dT tpqn d q = cast d * (tpqn `div` (cast q `div` 4))
 
 immediately : TrkEvent -> TrkEvent
 immediately (TE _ e) = TE 0 e
 
-midiPlayNote : Int -> Channel -> Note -> Duration -> List TrkEvent
-midiPlayNote tpqn c n d = [ TE 0               $ MidiEvt $ MkChMsg 0 $ NoteOn  (cast n) 64
-                          , TE (dur2dT tpqn d) $ MidiEvt $ MkChMsg 0 $ NoteOff (cast n) 64 ]
+midiPlayNote : Int -> Nat -> Channel -> Note -> Duration -> List TrkEvent
+midiPlayNote tpqn q c n d = [ TE 0                 $ MidiEvt $ MkChMsg c $ NoteOn  (cast n) 64
+                            , TE (dur2dT tpqn d q) $ MidiEvt $ MkChMsg c $ NoteOff (cast n) 64 ]
 
-noteToMidiCode : Int -> (Note, Duration) -> List TrkEvent
-noteToMidiCode tpqn (n, d) = midiPlayNote tpqn 1 (n + 60) d
+noteToMidiCode : Int -> Nat -> (Note, Duration) -> List TrkEvent
+noteToMidiCode tpqn q (n, d) = midiPlayNote tpqn q 0 (n + 60) (d`div`6)
 
-notesToMidiCodes : Int -> Tune -> List TrkEvent
-notesToMidiCodes tpqn = concat . map (noteToMidiCode tpqn)
+notesToMidiCodes : Int -> Nat -> Tune -> List TrkEvent
+notesToMidiCodes tpqn q = concat . map (noteToMidiCode tpqn q)
 
 ||| Converts a series of notes to be played into a single chord
 ||| This prevents cascading delta-times.
@@ -214,28 +209,28 @@ parallel : List1 (List TrkEvent) -> List (List TrkEvent)
 parallel (t:::ts) = transpose $ t :: map (map immediately) ts
 
 -- hacky
-chordToMidiCodes : Int -> Chord -> List TrkEvent
-chordToMidiCodes tpqn (MkChord _ _ ns) = concat
-                                       $ parallel
-                                       $ map (\n => toList
-                                                  $ midiPlayNote tpqn 2 (n + 48) 16)
-                                             ns
+chordToMidiCodes : Int -> Nat -> Chord -> List TrkEvent
+chordToMidiCodes tpqn q (MkChord _ _ ns) = concat
+                                         $ parallel
+                                         $ map (\n => toList
+                                                    $ midiPlayNote tpqn q 0 (n + 48) q)
+                                               ns
 
 midiTrk : List TrkEvent -> Chunk
 midiTrk ns = Track $ ns ++ [TE 1 $ MetaEvt $ EndOfTrack]
 
-genMidiFile : Int -> List Chord -> Tune -> MidiFile
-genMidiFile tpqn cs t = [ Header 1 2 tpqn
-                        , midiTrk $ notesToMidiCodes tpqn t
-                        , midiTrk $ concat $ map (chordToMidiCodes tpqn) cs ]
+genMidiFile : Int -> Nat -> List Chord -> Tune -> MidiFile
+genMidiFile tpqn q cs t = [ Header 1 2 tpqn
+                          , midiTrk $ notesToMidiCodes tpqn q t
+                          , midiTrk $ concat $ map (chordToMidiCodes tpqn q) cs ]
 
 setData : Buffer -> List Int -> IO ()
 setData b is = sequence_ $ zipWith (setByte b) [0 .. cast (length is) - 1] is
 
 partial
-test : Tune -> Int -> ChordProg -> Nat -> String -> IO ()
-test t tpqn cp n fn = do
-  let mf = genMidiFile 480 (map fst cp) t
+test : Int -> Nat -> Tune -> ChordProg -> String -> IO ()
+test tpqn q t cp fn = do
+  let mf = genMidiFile tpqn q (map fst cp) t
       f  = serialise mf
       l  = cast $ length f
   case !(newBuffer l) of
@@ -248,7 +243,12 @@ test t tpqn cp n fn = do
 
 -- TODO: The maths here is incorrect
 testDefs : Swing -> Tune -> (Nat -> ChordProg) -> String -> IO ()
-testDefs s t cp = test (playIt s t) 40 (cp $ 16) 192
+testDefs s t cp = test 480 q (playIt s t) (playIt s $ cp q)
+  where q : Nat
+        q = case s of
+          Straight => 16
+          Swung    => 12
+          Shuffled => 6
 
 test251 : String -> IO ()
 test251 fn = do
