@@ -5,6 +5,7 @@ import Control.Monad.Bayes.Sampler
 import Data.Buffer
 import Data.List1
 import Data.List
+import Data.Stream
 import Data.Vect
 import Generics.Derive
 import Sound.Midi.Types
@@ -90,6 +91,22 @@ scanl : forall elem. (res -> elem -> res) -> res -> List elem -> List res
 scanl f x [] = [x]
 scanl f x (y :: xs) = x :: scanl f (f x y) xs
 
+
+getBeat : MonadSample m => Double -> Rhythm -> m (Duration, Rhythm)
+getBeat p r = do
+  n <- geometric p
+  pure $ (sum $ toList $ Stream.take n r, Stream.drop n r)
+
+getBeats : MonadSample m => Nat -> Rhythm -> m (List Duration)
+getBeats = go 0
+  where go : Nat -> Nat -> Rhythm -> m (List Duration)
+        go acc n r = case acc >= n of
+                       True => pure $ []
+                       False => do
+                            (d, r') <- getBeat 0.62 r
+                            (d ::) <$> go (min n $ acc + d) n r'
+
+
 ||| Generates a random number of nats that sum to n. The numbers are generated geometrically,
 ||| meaning lower p-values tend to give shorter lists of larger numbers.
 fragment : MonadSample m => (n : Nat) -> Double -> m (List Nat)
@@ -114,10 +131,12 @@ genRhythm : MonadSample m => (n : Nat) -> Double -> m (List Duration)
 genRhythm = fragment
 
 partial
-genBar : MonadSample m => {q : ScaleQual} -> Nat -> Scale q -> Chord -> m Tune
-genBar n s c = do
-  durs1 <- genRhythm (n`div`2) 0.62
-  durs2 <- genRhythm (n`div`2) 0.62
+genBar : MonadSample m => {q : ScaleQual} -> Rhythm -> Nat -> Scale q -> Chord -> m Tune
+genBar r n s c = do
+  --durs1 <- genRhythm (n`div`2) 0.62
+  --durs2 <- genRhythm (n`div`2) 0.62
+  durs1 <- getBeats (n`div`2) r
+  durs2 <- getBeats (n`div`2) r
   let durs = durs1 ++ durs2
       l    = length durs
   notes <- genMelody l s c
@@ -142,9 +161,9 @@ twoFivePrior n = do
   sFive <- genScale MajorS [1/6, 1/3, 1/4, 1/4]
   sOne  <- genScale MajorS [1/12, 1/12, 3/6, 2/6]
 
-  tuneTwo  <- genBar n sTwo dm7
-  tuneFive <- genBar n sFive gd7
-  tuneOne  <- genBar n sOne cM7
+  tuneTwo  <- genBar straight16s n sTwo dm7
+  tuneFive <- genBar straight16s n sFive gd7
+  tuneOne  <- genBar straight16s n sOne cM7
 
   pure $ (transpose second tuneTwo) ++ (transpose fifth tuneFive) ++ tuneOne
 
@@ -155,37 +174,13 @@ cycleFive = do
 nBarBlues : MonadSample m => Nat -> m Tune
 nBarBlues n = do
   scale <- bluesOrPenta
-  ns <- replicateM n (genBar 16 scale cd7) -- TODO: take chordprog and change this
+  ns <- replicateM n (genBar swung16s 96 scale cd7) -- TODO: take chordprog and change this
   pure $ concat ns
   where bluesOrPenta : m (Scale MajorS)
         bluesOrPenta = uniformD [Blues, Pentatonic]
 
 ppTune : Tune -> IO ()
 ppTune = printLn . map (mapFst ppNote)
-
-altMapAcc : Nat -> (a -> a) -> List a -> List a
-altMapAcc acc f [] = []
-altMapAcc acc f (x :: xs) = (if acc `mod` 2 == 0 then f x else x)
-                         :: altMapAcc (S acc) f xs
-
-||| Maps over alternating elements in a list. altMap maps from the first element,
-||| altMap' from the second.
-altMap, altMap' : (a -> a) -> List a -> List a
-altMap  = altMapAcc 0
-altMap' = altMapAcc 1
-
-data Swing = Straight | Swung | Shuffled
-
-playIt : Swing -> Sequence a -> Sequence a
-playIt Straight = requantise 6
-playIt Swung    = requantise 4 . altMap (mapSnd (* 2))
-playIt Shuffled = requantise 3 . altMap (mapSnd (* 3))
-
--- ||| swingIt and shuffleIt both multiply the quantisation in order to
--- ||| alter where the notes land.
--- swingIt, shuffleIt : Tune -> ChordProg -> Tune
--- swingIt   = altMap (mapSnd (* 2))
--- shuffleIt = altMap (mapSnd (* 3))
 
 dur2dT : Int -> Duration -> Nat -> Int
 dur2dT tpqn d q = cast d * (tpqn `div` (cast q `div` 4))
@@ -242,21 +237,16 @@ test tpqn q t cp fn = do
         Right ()      => "written to " ++ fn
 
 -- TODO: The maths here is incorrect
-testDefs : Swing -> Tune -> (Nat -> ChordProg) -> String -> IO ()
-testDefs s t cp = test 480 q (playIt s t) (playIt s $ cp q)
-  where q : Nat
-        q = case s of
-          Straight => 16
-          Swung    => 12
-          Shuffled => 6
+testDefs : Tune -> (Nat -> ChordProg) -> String -> IO ()
+testDefs t cp = test 480 16 t (cp 16)
 
 test251 : String -> IO ()
 test251 fn = do
-  t <- sampleIO $ twoFivePrior 16
-  testDefs Straight t twoFive fn
+  t <- sampleIO $ twoFivePrior 96
+  testDefs t twoFive fn
 
 test12bb : String -> IO ()
-test12bb fn = testDefs Straight !(sampleIO $ nBarBlues 12) twelveBarBlues fn
+test12bb fn = testDefs !(sampleIO $ nBarBlues 12) twelveBarBlues fn
 
 test12bbf : String -> IO ()
-test12bbf fn = testDefs Swung !(sampleIO $ nBarBlues 24) twelveBarBluesFancy fn
+test12bbf fn = testDefs !(sampleIO $ nBarBlues 24) twelveBarBluesFancy fn

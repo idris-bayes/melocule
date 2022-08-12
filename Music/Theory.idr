@@ -230,3 +230,15 @@ scaleToNotes MajorS Pentatonic = [root, second,           majThird, fifth, majSi
 scaleToNotes MinorS Pentatonic = [root, minThird, fourth,           fifth, minSeventh]
 scaleToNotes MajorS Blues      = [root, second, minThird, majThird, fifth, majSixth]
 scaleToNotes MinorS Blues      = [root, minThird, fourth, dimFifth, fifth, minSeventh]
+
+
+Rhythm = Stream Duration
+
+straight16s : Rhythm
+straight16s = repeat 6
+
+swung16s : Rhythm
+swung16s = cycle [8, 4]
+
+shuffle16s : Rhythm
+shuffle16s = cycle [9, 3]
