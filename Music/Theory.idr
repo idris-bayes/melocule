@@ -2,6 +2,7 @@ module Music.Theory
 
 import Data.List
 import Data.List1
+import Data.Stream
 import Generics.Derive
 
 %language ElabReflection
@@ -232,13 +233,25 @@ scaleToNotes MajorS Blues      = [root, second, minThird, majThird, fifth, majSi
 scaleToNotes MinorS Blues      = [root, minThird, fourth, dimFifth, fifth, minSeventh]
 
 
+||| Represents a rhythm as an infinite stream of durations.
+public export
+Rhythm : Type
 Rhythm = Stream Duration
 
+||| Represents a rhythm of straight 16th notes, quantised to 6 quanta per 16th note.
+||| Equivalent to a swing of 50% in a DAW.
+export
 straight16s : Rhythm
 straight16s = repeat 6
 
+||| Represents a rhythm of swung 16th notes, quantised to 6 quanta per 16th note.
+||| Equivalent to a swing of 66% in a DAW.
+export
 swung16s : Rhythm
 swung16s = cycle [8, 4]
 
+||| Represents a rhythm of shuffled 16th notes, quantised to 6 quanta per 16th note.
+||| Equivalent to a swing of 75% in a DAW.
+export
 shuffle16s : Rhythm
 shuffle16s = cycle [9, 3]
