@@ -45,6 +45,7 @@ catIndex ps ss = do
   pure $
     index !(categorical $ rewrite sym ford in ps') $ ss'
 
+
 uniformScale : MonadSample m => {q : ScaleQual} -> Nat -> Scale q -> m (List Note)
 uniformScale n s = assert_total $ do
   let ns = scaleToNotes q s
@@ -60,6 +61,7 @@ endless xs = endlessAux xs
     endlessAux : List elem' -> Stream elem'
     endlessAux [] = endlessAux xs
     endlessAux (y :: ys) = y :: endlessAux ys
+
 
 runDir : Dir -> Nat -> List a -> List a
 runDir Up   n = take n . endless
@@ -86,6 +88,7 @@ genMelodyFrag n s c = do
     Arpeggio => arpeggiate n c
     Walk     => walk n s
 
+
 -- TODO: put in stdlib's contrib
 scanl : forall elem. (res -> elem -> res) -> res -> List elem -> List res
 scanl f x [] = [x]
@@ -104,7 +107,9 @@ getBeats = go 0
                        True => pure $ []
                        False => do
                             (d, r') <- getBeat 0.62 r
-                            (d ::) <$> go (min n $ acc + d) n r'
+                            if acc + d > n
+                              then pure [minus n acc]
+                              else (d ::) <$> go (min n $ acc + d) n r'
 
 
 ||| Generates a random number of nats that sum to n. The numbers are generated geometrically,
@@ -167,10 +172,6 @@ twoFivePrior n = do
 
   pure $ (transpose second tuneTwo) ++ (transpose fifth tuneFive) ++ tuneOne
 
-cycleFive : MonadSample m => m Tune
-cycleFive = do
-  pure []
-
 nBarBlues : MonadSample m => Nat -> m Tune
 nBarBlues n = do
   scale <- bluesOrPenta
@@ -178,6 +179,14 @@ nBarBlues n = do
   pure $ concat ns
   where bluesOrPenta : m (Scale MajorS)
         bluesOrPenta = uniformD [Blues, Pentatonic]
+
+fmttm : MonadSample m => m Tune
+fmttm = do
+  let c = the (Scale MajorS) Ionian
+      a = the (Scale MinorS) Melodic
+  cs <- map concat $ replicateM 5 $ genBar straight16s 96 c cM7
+  as <- map (transpose (minus A 12) . concat) $ replicateM 3 $ genBar straight16s 96 a am7
+  pure $ cs ++ as
 
 ppTune : Tune -> IO ()
 ppTune = printLn . map (mapFst ppNote)
@@ -250,3 +259,6 @@ test12bb fn = testDefs !(sampleIO $ nBarBlues 12) twelveBarBlues fn
 
 test12bbf : String -> IO ()
 test12bbf fn = testDefs !(sampleIO $ nBarBlues 24) twelveBarBluesFancy fn
+
+testfmttm : String -> IO ()
+testfmttm fn = testDefs !(sampleIO fmttm) flyMeToTheMoon fn

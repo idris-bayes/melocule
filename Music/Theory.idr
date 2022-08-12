@@ -5,8 +5,6 @@ import Data.List1
 import Data.Stream
 import Generics.Derive
 
-%language ElabReflection
-
 ||| Represents a chord degree. Ostensibly this is Fin 12, but using Nat allows a simpler way
 ||| of representing notes that go outside of an octave.
 public export
@@ -53,24 +51,22 @@ augFifth = minSixth
 minNinth = 12 + flatSecond
 majNinth = 12 + second
 
-||| Encodes the quality of a chord.
+||| Encodes the quality of a chord, and affects the notes in it as well as scales
+||| over it.
 public export
 data ChordQual = Major
                | Dominant
                | Minor
---%runElab derive "ChordQual" [Generic, Eq]
 export
 Show ChordQual where
   show Major    = "Major"
   show Dominant = "Dominant"
   show Minor    = "Minor"
 
-||| Chords, represented as a root note, Quality, and list of notes in the chord.
-||| Representation may change as the root is included in the list.
+||| Chords, represented as a Quality and list of notes in the chord.
 public export
 data Chord = MkChord ChordQual
-                     (List1 Note)  -- List of notes in chord
---%runElab derive "Chord" [Generic, Eq]
+                     (List1 Note)
 export
 Show Chord where
   show (MkChord q ns) = ppNote (head ns) ++ " \{show q} \{show ns}"
@@ -101,43 +97,56 @@ export
 ||| Extend a chord with its sixth degree
 export
 (.add6) : Chord -> Chord
-(.add6) c@(MkChord Major _)    = extend c majSixth
+(.add6) c@(MkChord Major    _) = extend c majSixth
 (.add6) c@(MkChord Dominant _) = extend c majSixth
-(.add6) c@(MkChord Minor _)    = extend c minSixth
+(.add6) c@(MkChord Minor    _) = extend c minSixth
 
 ||| Extend a chord with its seventh degree
 export
 (.b7), (.s7), (.add7) : Chord -> Chord
 (.b7) c = extend c minSeventh
 (.s7) c = extend c majSeventh
-(.add7) c@(MkChord Major _)    = extend c majSeventh
+(.add7) c@(MkChord Major    _) = extend c majSeventh
 (.add7) c@(MkChord Dominant _) = extend c minSeventh
-(.add7) c@(MkChord Minor _)    = extend c minSeventh
+(.add7) c@(MkChord Minor    _) = extend c minSeventh
 
 ||| Extend a chord with its ninth degree
 export
 (.b9), (.s9), (.add9) : Chord -> Chord
 (.b9) c = extend c minNinth
 (.s9) c = extend c majNinth
-(.add9) c@(MkChord Major _)    = extend c majNinth
+(.add9) c@(MkChord Major    _) = extend c majNinth
 (.add9) c@(MkChord Dominant _) = extend c majNinth
-(.add9) c@(MkChord Minor _)    = extend c minNinth
+(.add9) c@(MkChord Minor    _) = extend c minNinth
 
-cM6 = C .major.add6
-cM7 = C .major.add7
-cd7 = C .dom.add7
+cM  = C .major
+cd  = C .dom
+cM6 = cM.add6
+cM7 = cM.add7
+cd7 = cd.add7
 cd9 = cd7.add9
-dm7 = D .minor.add7
-fM7 = F .major.add7
+dm  = D .minor
+dm7 = dm.add7
+eM  = E .major
+em  = E .minor
+ed  = E .dom
+ed7 = ed.add7
+fM  = F .major
+fm  = F .minor
+fM7 = fM.add7
 fd7 = F .dom.add7
 fd9 = fd7.add9
 gd7 = G .dom.add7
 gd9 = gd7.add9
+am  = A .minor
+ad  = A .dom
+am7 = am.add7
+ad7 = ad.add7
 
 ||| Some sample Chord Progressions. The input natural is the number of quantised
 ||| notes per bar.
 export
-twoFive, twelveBarBlues, twelveBarBluesFancy : Nat -> ChordProg
+twoFive, twelveBarBlues, twelveBarBluesFancy, flyMeToTheMoon : Nat -> ChordProg
 twoFive = mkChordProg [dm7, gd7, cM7]
 
 twelveBarBlues = mkChordProg
@@ -153,6 +162,12 @@ twelveBarBluesFancy = mkChordProg
   , cd7, fd7, cd7, cd7
   , fd7, fd9, cd7, cd7
   , gd7, fd7, cd7, cM6 ]
+
+flyMeToTheMoon = mkChordProg
+  [ am,  dm7, gd7, cM7
+  , fM,  dm,  ed7, am
+  , dm7, gd7, cM,  am
+  , dm7, gd7, cM ]
 
 
 ||| Represents the quality of a scale. Either Major or Minor.
@@ -195,15 +210,15 @@ majScales = [ Ionian
 public export
 minScales : List (Scale MinorS)
 minScales = [ Harmonic
-             , Melodic
-             , Blues
-             , Pentatonic ]
+            , Melodic
+            , Blues
+            , Pentatonic ]
 ||| List of all the "neutral" scales, those being scales with no discernible
 ||| quality.
 public export
 neuScales : List (Scale q)
 neuScales = [ Chromatic
-             , WholeTone ]
+            , WholeTone ]
 
 ||| Gets the number of scales in a quality. Useful for making types align.
 public export
@@ -227,9 +242,9 @@ scaleToNotes MajorS Harmonic   = [root, second, majThird, fourth, fifth, minSixt
 scaleToNotes MinorS Harmonic   = [root, second, minThird, fourth, fifth, minSixth, majSeventh]
 scaleToNotes MinorS Melodic    = [root, second, minThird, fourth, fifth, majSixth, majSeventh]
 scaleToNotes MajorS Pentatonic = [root, second,           majThird, fifth, majSixth]
-scaleToNotes MinorS Pentatonic = [root, minThird, fourth,           fifth, minSeventh]
+scaleToNotes MinorS Pentatonic = [root,         minThird, fourth,           fifth, minSeventh]
 scaleToNotes MajorS Blues      = [root, second, minThird, majThird, fifth, majSixth]
-scaleToNotes MinorS Blues      = [root, minThird, fourth, dimFifth, fifth, minSeventh]
+scaleToNotes MinorS Blues      = [root,         minThird, fourth, dimFifth, fifth, minSeventh]
 
 
 ||| Represents a rhythm as an infinite stream of durations.
