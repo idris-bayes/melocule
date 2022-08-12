@@ -68,13 +68,12 @@ Show ChordQual where
 ||| Chords, represented as a root note, Quality, and list of notes in the chord.
 ||| Representation may change as the root is included in the list.
 public export
-data Chord = MkChord Note          -- Root
-                     ChordQual
+data Chord = MkChord ChordQual
                      (List1 Note)  -- List of notes in chord
 --%runElab derive "Chord" [Generic, Eq]
 export
 Show Chord where
-  show (MkChord k q ns) = ppNote k ++ " \{show q} \{show ns}"
+  show (MkChord q ns) = ppNote (head ns) ++ " \{show q} \{show ns}"
 
 ||| Represents a chord progression.
 public export
@@ -91,38 +90,38 @@ mkChordProg cs n = map (\c => (c, n)) cs
 ||| Add a chord extension.
 export
 extend : Chord -> Note -> Chord
-extend (MkChord k q ns) n = MkChord k q (snoc ns $ n+k)
+extend (MkChord q ns) n = MkChord q (snoc ns $ n + head ns)
 
 export
 (.major), (.minor), (.dom) : Note -> Chord
-(.major) n = MkChord n Major    (map (+n) $ C:::[E,  G])
-(.dom)   n = MkChord n Dominant (map (+n) $ C:::[E,  G])
-(.minor) n = MkChord n Minor    (map (+n) $ C:::[Eb, G])
+(.major) n = MkChord Major    (map (+n) $ C:::[E,  G])
+(.dom)   n = MkChord Dominant (map (+n) $ C:::[E,  G])
+(.minor) n = MkChord Minor    (map (+n) $ C:::[Eb, G])
 
 ||| Extend a chord with its sixth degree
 export
 (.add6) : Chord -> Chord
-(.add6) c@(MkChord _ Major _)    = extend c majSixth
-(.add6) c@(MkChord _ Dominant _) = extend c majSixth
-(.add6) c@(MkChord _ Minor _)    = extend c minSixth
+(.add6) c@(MkChord Major _)    = extend c majSixth
+(.add6) c@(MkChord Dominant _) = extend c majSixth
+(.add6) c@(MkChord Minor _)    = extend c minSixth
 
 ||| Extend a chord with its seventh degree
 export
 (.b7), (.s7), (.add7) : Chord -> Chord
 (.b7) c = extend c minSeventh
 (.s7) c = extend c majSeventh
-(.add7) c@(MkChord _ Major _)    = extend c majSeventh
-(.add7) c@(MkChord _ Dominant _) = extend c minSeventh
-(.add7) c@(MkChord _ Minor _)    = extend c minSeventh
+(.add7) c@(MkChord Major _)    = extend c majSeventh
+(.add7) c@(MkChord Dominant _) = extend c minSeventh
+(.add7) c@(MkChord Minor _)    = extend c minSeventh
 
 ||| Extend a chord with its ninth degree
 export
 (.b9), (.s9), (.add9) : Chord -> Chord
 (.b9) c = extend c minNinth
 (.s9) c = extend c majNinth
-(.add9) c@(MkChord _ Major _)    = extend c majNinth
-(.add9) c@(MkChord _ Dominant _) = extend c majNinth
-(.add9) c@(MkChord _ Minor _)    = extend c minNinth
+(.add9) c@(MkChord Major _)    = extend c majNinth
+(.add9) c@(MkChord Dominant _) = extend c majNinth
+(.add9) c@(MkChord Minor _)    = extend c minNinth
 
 cM6 = C .major.add6
 cM7 = C .major.add7

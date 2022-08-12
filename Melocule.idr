@@ -69,7 +69,7 @@ scaleDir : {q : ScaleQual} -> Scale q -> Dir -> (n : Nat) -> List Nat
 scaleDir s d n = runDir d n $ scaleToNotes q s
 
 arpeggiate : MonadSample m => Nat -> Chord -> m (List Note)
-arpeggiate n (MkChord _ _ ns) = do
+arpeggiate n (MkChord _ ns) = do
   d <- uniformD dirs
   let ns' := runDir d n $ toList ns
   pure ns'
@@ -205,7 +205,7 @@ parallel (t:::ts) = transpose $ t :: map (map immediately) ts
 
 -- hacky
 chordToMidiCodes : Int -> Nat -> Chord -> List TrkEvent
-chordToMidiCodes tpqn q (MkChord _ _ ns) = concat
+chordToMidiCodes tpqn q (MkChord _ ns) = concat
                                          $ parallel
                                          $ map (\n => toList
                                                     $ midiPlayNote tpqn q 0 (n + 48) q)
