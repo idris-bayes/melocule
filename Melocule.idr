@@ -175,7 +175,7 @@ twoFivePrior n = do
 nBarBlues : MonadSample m => Nat -> m Tune
 nBarBlues n = do
   scale <- bluesOrPenta
-  ns <- replicateM n (genBar swung16s 96 scale cd7) -- TODO: take chordprog and change this
+  ns <- replicateM n (genBar straight16s 96 scale cd7) -- TODO: take chordprog and change this
   pure $ concat ns
   where bluesOrPenta : m (Scale MajorS)
         bluesOrPenta = uniformD [Blues, Pentatonic]
