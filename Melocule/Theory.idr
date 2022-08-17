@@ -1,4 +1,4 @@
-module Music.Theory
+module Melocule.Theory
 
 import Data.List
 import Data.List1
@@ -30,6 +30,11 @@ Sequence ty = List (ty, Duration)
 public export
 Tune : Type
 Tune = Sequence Note
+
+||| Pretty prints a tune.
+export
+ppTune : Tune -> IO ()
+ppTune = printLn . map (mapFst ppNote)
 
 ||| Mnemonics for notes in the key of C.
 export
@@ -75,6 +80,11 @@ Show Chord where
 public export
 ChordProg : Type
 ChordProg = Sequence Chord
+
+||| Access the list of chords in a progression
+export
+(.chords) : ChordProg -> List Chord
+(.chords) = map fst
 
 ||| Generate a ChordProg given a list of chords and a number of notes per bar
 ||| (i.e. the quantisation amount).
@@ -269,3 +279,8 @@ swung16s = cycle [8, 4]
 export
 shuffle16s : Rhythm
 shuffle16s = cycle [9, 3]
+
+||| A single bar of a 4/4 Son Clave rhythm, common in Bossa Nova.
+export
+sonClave44 : Rhythm
+sonClave44 = cycle [18, 18, 24, 12, 24]
