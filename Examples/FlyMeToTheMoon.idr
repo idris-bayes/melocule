@@ -20,5 +20,5 @@ writeFmttm fn = writeTuneDefault !(sampleIO fmttm) flyMeToTheMoon fn
 ||| Reads the first argument as a filename, and writes a generated tune to it.
 main : IO ()
 main = case !getArgs of
-  []     => printLn "expected filename"
-  (fn::_) => writeFmttm fn
+  (_::fn::_) => writeFmttm fn
+  _     => printLn "expected filename"
