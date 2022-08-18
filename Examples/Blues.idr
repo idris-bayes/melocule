@@ -3,6 +3,7 @@ module Examples.Blues
 -- TODO: This would be a nice place to show off random chord exts, if added
 
 import Melocule
+import System
 
 ||| Solos for n bars over an implied twelve bar blues progression.
 nBarBlues : MonadSample m => Nat -> m Tune
@@ -13,8 +14,15 @@ nBarBlues n = do
   where bluesOrPenta : m (Scale MajorS)
         bluesOrPenta = uniformD [Blues, Pentatonic]
 
-test12bb : String -> IO ()
-test12bb fn = writeTuneDefault !(sampleIO $ nBarBlues 12) twelveBarBlues fn
+write12bb : String -> IO ()
+write12bb fn = writeTuneDefault !(sampleIO $ nBarBlues 12) twelveBarBlues fn
 
-test12bbf : String -> IO ()
-test12bbf fn = writeTuneDefault !(sampleIO $ nBarBlues 24) twelveBarBluesFancy fn
+write12bbf : String -> IO ()
+write12bbf fn = writeTuneDefault !(sampleIO $ nBarBlues 24) twelveBarBluesFancy fn
+
+
+||| Reads the first argument as a filename, and writes a generated tune to it.
+main : IO ()
+main = case !getArgs of
+  []     => printLn "expected filename"
+  (fn::_) => write12bbf fn

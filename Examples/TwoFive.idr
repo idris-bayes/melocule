@@ -3,6 +3,7 @@
 module Examples.TwoFive
 
 import Melocule
+import System
 
 ||| Prior distribution for a two-five-one chord progression in C Major, with
 ||| randomly chosen scales above each chord.
@@ -23,3 +24,9 @@ write251 : String -> IO ()
 write251 fn = do
   t <- sampleIO $ twoFivePrior 96
   writeTuneDefault t twoFive fn
+
+||| Reads the first argument as a filename, and writes a generated tune to it.
+main : IO ()
+main = case !getArgs of
+  []     => printLn "expected filename"
+  (fn::_) => write251 fn

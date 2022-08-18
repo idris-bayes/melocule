@@ -3,6 +3,7 @@
 module Examples.FlyMeToTheMoon
 
 import Melocule
+import System
 
 fmttm : MonadSample m => m Tune
 fmttm = do
@@ -14,3 +15,10 @@ fmttm = do
 
 writeFmttm : String -> IO ()
 writeFmttm fn = writeTuneDefault !(sampleIO fmttm) flyMeToTheMoon fn
+
+
+||| Reads the first argument as a filename, and writes a generated tune to it.
+main : IO ()
+main = case !getArgs of
+  []     => printLn "expected filename"
+  (fn::_) => writeFmttm fn
