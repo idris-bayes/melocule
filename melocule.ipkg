@@ -13,9 +13,7 @@ authors = "Jacob Walters"
 -- langversion
 
 -- packages to add to search path
-depends = sop
-        , elab-util
-        , midi
+depends = midi
         , monad-bayes
         , log-domain
         , distribution
@@ -24,6 +22,9 @@ depends = sop
 
 -- modules to install
 modules = Melocule
+        , Melocule.Theory
+        , Melocule.Generation
+        , Melocule.Output
 
 -- main file (i.e. file to load at REPL)
 -- main =
