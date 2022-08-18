@@ -3,3 +3,27 @@ type   = "github"
 url    = "https://github.com/idris-bayes/midi"
 commit = "latest:main"
 ipkg   = "midi.ipkg"
+
+[custom.all.log-domain]
+type   = "github"
+url    = "https://github.com/idris-bayes/log-domain"
+commit = "latest:main"
+ipkg   = "log-domain.ipkg"
+
+[custom.all.distribution]
+type   = "github"
+url    = "https://github.com/idris-bayes/distribution"
+commit = "latest:main"
+ipkg   = "distribution.ipkg"
+
+[custom.all.free]
+type   = "github"
+url    = "https://github.com/idris-bayes/free"
+commit = "latest:main"
+ipkg   = "free.ipkg"
+
+[custom.all.monad-bayes]
+type   = "github"
+url    = "https://github.com/idris-bayes/monad-bayes"
+commit = "latest:main"
+ipkg   = "monad-bayes.ipkg"
