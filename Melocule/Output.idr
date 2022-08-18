@@ -61,7 +61,7 @@ genMidiFile tpqn q cs t = [ Header 1 2 tpqn
 ||| level, the tune, the chord progression, and a filename.
 public export
 writeTune : Int -> Nat -> Tune -> ChordProg -> String -> IO ()
-test tpqn q t cp fn = do
+writeTune tpqn q t cp fn = do
   let mf = genMidiFile tpqn q (cp.chords) t
       f  = serialise mf
       l  = cast $ length f
