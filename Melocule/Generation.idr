@@ -143,11 +143,3 @@ genScale : MonadSample m => (q : ScaleQual) -> (weights : List Double) ->
   m (Scale q)
 genScale MajorS ps = catIndex ps majScales
 genScale MinorS ps = catIndex ps minScales
-
-export
-transpose : Note -> Tune -> Tune
-transpose n = map (mapFst (+ n))
-
-export
-requantise : Nat -> Sequence a -> Sequence a
-requantise n = map (mapSnd (* n))
