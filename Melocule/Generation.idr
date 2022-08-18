@@ -126,6 +126,7 @@ genMelody n s c = do
   nss <- sequence $ map (\l => genMelodyFrag l s c) ls
   pure $ concat nss
 
+-- TODO: move transpotition here?
 partial export
 genBar : MonadSample m => {q : ScaleQual} -> Rhythm -> Nat -> Scale q -> Chord -> m Tune
 genBar r n s c = do

@@ -26,10 +26,21 @@ public export
 Sequence : Type -> Type
 Sequence ty = List (ty, Duration)
 
+||| Requantises a sequence to a given quantisation level.
+||| Can only increase precision!
+export
+requantise : Nat -> Sequence a -> Sequence a
+requantise n = map (mapSnd (* n))
+
 ||| Represents a melody or melody fragment (with n notes).
 public export
 Tune : Type
 Tune = Sequence Note
+
+||| Transposes a tune by n semitones.
+export
+transpose : Note -> Tune -> Tune
+transpose n = map (mapFst (+ n))
 
 ||| Pretty prints a tune.
 export
