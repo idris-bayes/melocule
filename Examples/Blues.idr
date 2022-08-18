@@ -24,5 +24,5 @@ write12bbf fn = writeTuneDefault !(sampleIO $ nBarBlues 24) twelveBarBluesFancy 
 ||| Reads the first argument as a filename, and writes a generated tune to it.
 main : IO ()
 main = case !getArgs of
-  []     => printLn "expected filename"
-  (fn::_) => write12bbf fn
+  (_::fn::_) => write12bbf fn
+  _     => printLn "expected filename"

@@ -28,5 +28,5 @@ write251 fn = do
 ||| Reads the first argument as a filename, and writes a generated tune to it.
 main : IO ()
 main = case !getArgs of
-  []     => printLn "expected filename"
-  (fn::_) => write251 fn
+  (_::fn::_) => write251 fn
+  _     => printLn "expected filename"
