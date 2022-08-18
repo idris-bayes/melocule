@@ -1,9 +1,10 @@
 module Melocule.Theory
 
+import Data.Fin
 import Data.List
 import Data.List1
+import Data.Vect
 import Data.Stream
-import Generics.Derive
 
 ||| Represents a chord degree. Ostensibly this is Fin 12, but using Nat allows a simpler way
 ||| of representing notes that go outside of an octave.
