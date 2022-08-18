@@ -5,6 +5,10 @@ melocule is a probabilistic composition library/program written in Idris2, based
 It is intended to be used to model jazz improvisation.
 
 ## Installing
+This has `libgsl` and `lapack`, and `idris2-pack` as hard dependencies.
+`lilypond` is required if you wish to have images generated from the makefile.
+Without this, the examples will error on `make`, but the midi file will be generated regardless.
+
 To use melocule, simply add the following to your `pack.toml`:
 ```
 [custom.all.melocule]
@@ -75,6 +79,8 @@ This file is simply for programming utils that really should be elsewhere.
 
 ## Examples
 The Examples directory has some example programs that generate music.
+They can be run through the makefile, and will produce output in the `out/` directory.
+
 ### 251
 The TwoFive example is the most low-level, and focuses on scale generation.
 It picks a scale to play over each chord in a 251, and creates a tune from this.
