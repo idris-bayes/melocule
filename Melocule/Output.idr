@@ -59,7 +59,7 @@ genMidiFile tpqn q cs t = [ Header 1 2 tpqn
 
 ||| Writes a tune given a specified ticks-per-quarter-note value, a quantisation
 ||| level, the tune, the chord progression, and a filename.
-export
+public export
 writeTune : Int -> Nat -> Tune -> ChordProg -> String -> IO ()
 test tpqn q t cp fn = do
   let mf = genMidiFile tpqn q (cp.chords) t
