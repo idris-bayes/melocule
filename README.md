@@ -6,8 +6,8 @@ It is intended to be used to model jazz improvisation.
 
 ## Installing
 This has `libgsl` and `idris2-pack` as hard dependencies.
-`lilypond` is required if you wish to have images generated from the makefile.
-Without this, the examples will error on `make`, but the midi file will be generated regardless.
+`lilypond` is required if you wish to have PDFs generated from the makefile.
+Without this, the examples will error on `make`, but you can 
 
 To use melocule, simply add the following to your `pack.toml`:
 ```
@@ -18,6 +18,20 @@ commit = "latest:main"
 ipkg   = "melocule.ipkg"
 ```
 You can then add `import Melocule` to an Idris2 file and get hacking!
+
+## Running
+The Makefile provides the following targets:
+
+- `clean`: cleans the build and output directories.
+- `dependencies`: installs the Idris2 dependencies.
+- `melocule`: builds melocule as a program (currently an alias for `dependencies`).
+- `twofive`: executes the 2-5-1 example.
+- `blues`: executes the blues example.
+- `fmttm`: executes the Fly Me To The Moon example.
+- `midi`: generates MIDI files for all examples.
+- `pdfs`: generates PDFs of all MIDI files in the `out/` directory.
+
+Your generated MIDI and PDF files are contained in the `out/` directory.
 
 ## Structure
 melocule generates notes according to music theoretical rules.
