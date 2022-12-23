@@ -1,4 +1,4 @@
-all: melocule midi pdfs
+all: melocule generate
 
 .PHONY:
 
@@ -38,3 +38,5 @@ pdfs: midi
 		rm "$$f.ly"; \
 		rm "$$f.midi"; \
 	done
+
+generate: midi pdfs
