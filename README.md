@@ -7,7 +7,7 @@ It is intended to be used to model jazz improvisation.
 ## Installing
 This has `libgsl` and `idris2-pack` as hard dependencies.
 `lilypond` is required if you wish to have PDFs generated from the makefile.
-Without this, the examples will error on `make`, but you can 
+Without this, the examples will error on `make pdfs`, but you can still call `make midi`.
 
 To use melocule, simply add the following to your `pack.toml`:
 ```
@@ -30,6 +30,8 @@ The Makefile provides the following targets:
 - `fmttm`: executes the Fly Me To The Moon example.
 - `midi`: generates MIDI files for all examples.
 - `pdfs`: generates PDFs of all MIDI files in the `out/` directory.
+- `generate`: generates all MIDI and PDF files.
+- `all`: builds melocule, and generates the MIDI and PDF files for every example.
 
 Your generated MIDI and PDF files are contained in the `out/` directory.
 
