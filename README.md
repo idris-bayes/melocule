@@ -5,7 +5,7 @@ melocule is a probabilistic composition library/program written in Idris2, based
 It is intended to be used to model jazz improvisation.
 
 ## Installing
-This has `libgsl` and `lapack`, and `idris2-pack` as hard dependencies.
+This has `libgsl` and `idris2-pack` as hard dependencies.
 `lilypond` is required if you wish to have images generated from the makefile.
 Without this, the examples will error on `make`, but the midi file will be generated regardless.
 

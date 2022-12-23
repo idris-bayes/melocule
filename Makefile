@@ -1,32 +1,40 @@
-all: melocule examples
+all: melocule midi pdfs
 
 .PHONY:
 
-builddir = build/
-outdir = out/
+output-fmt = pdf
 
-lyfmt = pdf
+builddir = build
+outdir = out
+
+run := LD_LIBRARY_PATH=$(shell gsl-config --prefix)/lib pack exec
+lycmd := lilypond -f $(output-fmt) #-i format.ly 
 
 clean:
-	rm -rf "$(builddir)*"
-	rm -rf "$(outdir)*"
+	rm -rf "$(builddir)/*"
+	rm -rf "$(outdir)/*"
 
-melocule:
+dependencies:
 	pack install-deps melocule.ipkg
 
+melocule: dependencies
+
+
 twofive: melocule
-	pack exec Examples/TwoFive.idr "$(outdir)251.mid"
-	midi2ly -o "$(outdir)251.ly" "$(outdir)251.mid"
-	lilypond -i format.ly -f $(lyfmt) -o "$(outdir)251" "$(outdir)251.ly"
+	$(run) Examples/TwoFive.idr "$(outdir)/251.mid"
 
 blues: melocule
-	pack exec Examples/Blues.idr "$(outdir)blues.mid"
-	midi2ly -o "$(outdir)blues.ly" "$(outdir)blues.mid"
-	lilypond -i format.ly -f $(lyfmt) -o "$(outdir)blues" "$(outdir)blues.ly"
+	$(run) Examples/Blues.idr "$(outdir)/blues.mid"
 
 fmttm: melocule
-	pack exec Examples/FlyMeToTheMoon.idr "$(outdir)fmttm.mid"
-	midi2ly -o "$(outdir)fmttm.ly" "$(outdir)fmttm.mid"
-	lilypond -i format.ly -f $(lyfmt) -o "$(outdir)fmttm" "$(outdir)fmttm.ly"
+	$(run) Examples/FlyMeToTheMoon.idr "$(outdir)/fmttm.mid"
 
-examples: twofive blues fmttm
+midi: twofive blues fmttm
+
+pdfs: midi
+	for f in $(wildcard $(outdir)/*.mid); do \
+		midi2ly -o "$$f.ly" "$$f"; \
+		$(lycmd) -o "$$f" "$$f.ly"; \
+		rm "$$f.ly"; \
+		rm "$$f.midi"; \
+	done
